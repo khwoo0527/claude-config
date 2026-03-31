@@ -1,9 +1,5 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(mkdir -p /c/Source/claude-config)",
-      "Bash(cp -r /c/Source/ysr/trunk/Module/YsrPgConv/YsrConversionTool/.claude/* /c/Source/claude-config/)",
-      "Read(//c/Source/**)"
-    ]
+    "allow": []
   }
 }
