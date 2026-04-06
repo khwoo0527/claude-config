@@ -107,7 +107,10 @@ graph TD
 │       └── {tech}.md                    (프로젝트 진행하며 확장)
 │
 ├── 📐 templates/                    문서 생성 가이드 (수동 참조)
-│   └── RULES-TEMPLATE.md             rules 작성 메타 템플릿
+│   ├── RULES-TEMPLATE.md             rules 작성 메타 템플릿
+│   └── designs/                      DESIGN.md 레퍼런스 (54개 브랜드)
+│       ├── design-catalog.md          디자인 추천 매트릭스
+│       └── {brand}.md                 브랜드별 디자인 시스템 (Google Stitch 형식)
 │
 ├── 🤖 agents/                       자동화 에이전트 (8개)
 │   ├── project-init.md                새 프로젝트 초기 설정
@@ -119,8 +122,9 @@ graph TD
 │   ├── hotfix-close.md                Hotfix 마무리
 │   └── deploy-prod.md                 배포 준비
 │
-├── ⌨️ commands/                      사용자 실행 커맨드
-│   └── sprint-dev.md                  /sprint-dev {N}
+├── ⌨️ commands/                      사용자 실행 커맨드 (2개)
+│   ├── sprint-dev.md                  /sprint-dev {N}
+│   └── design-review.md              /design-review — DESIGN.md 풀 파워 검증
 │
 ├── 🧠 memory/                       사용자 선호 (범용, 프로젝트 간 재사용)
 │   ├── MEMORY.md                      메모리 인덱스
