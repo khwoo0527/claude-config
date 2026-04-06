@@ -173,14 +173,15 @@ graph TD
 
 ### 기술 전문 규칙 (제공됨)
 
-| 기술 스택 | 파일 | 점수 |
-|----------|------|:----:|
-| TypeScript | [typescript.md](rules/typescript.md) | 72 |
-| React Native + Expo | [react-native.md](rules/react-native.md) | 85 |
-| Supabase | [supabase.md](rules/supabase.md) | 88 |
-| C# | [csharp.md](rules/csharp.md) | 85 |
+| 기술 스택 | 파일 | 점수 | Level |
+|----------|------|:----:|:-----:|
+| TypeScript | [typescript.md](rules/typescript.md) | 65 | 2 |
+| React Native + Expo | [react-native.md](rules/react-native.md) | 85 | 3 |
+| Supabase | [supabase.md](rules/supabase.md) | 84 | 3 |
+| C# | [csharp.md](rules/csharp.md) | 83 | 3 |
 
-> 점수는 [TEMPLATE.md](rules/TEMPLATE.md)의 4단계 품질 체크리스트 기준 (Level 1: 60 ~ Level 4: 95+)
+> 점수는 [TEMPLATE.md](rules/TEMPLATE.md)의 6개 카테고리 기반 평가 체계 (Level 0~4, 0~100점)
+> 카테고리: 구조(10) + 코드예시(20) + 안티패턴(15) + 실전함정(20) + 검증(15) + 바이브코딩(20)
 > 프로젝트 진행하면서 점진적으로 개선됩니다.
 
 ### 새 기술 스택 추가
