@@ -178,7 +178,7 @@ graph TD
 | TypeScript | [typescript.md](rules/typescript.md) | 72 |
 | React Native + Expo | [react-native.md](rules/react-native.md) | 85 |
 | Supabase | [supabase.md](rules/supabase.md) | 88 |
-| C# | [csharp.md](rules/csharp.md) | 40 |
+| C# | [csharp.md](rules/csharp.md) | 85 |
 
 > 점수는 [TEMPLATE.md](rules/TEMPLATE.md)의 4단계 품질 체크리스트 기준 (Level 1: 60 ~ Level 4: 95+)
 > 프로젝트 진행하면서 점진적으로 개선됩니다.
