@@ -9,7 +9,7 @@ paths:
 
 > 이 파일은 기술 스택에 무관하게 적용되는 범용 워크플로우입니다.
 > 프로젝트별 기술 스택, 빌드 명령, 브랜치 전략은 `/CLAUDE.md`에 정의합니다.
-> 에이전트는 반드시 `/CLAUDE.md`의 `tech_stack`을 확인하고, 해당하는 `.claude/rules/{tech}.md`를 로드하여 기술 스택 전문가로 동작합니다.
+> 에이전트는 반드시 `/CLAUDE.md`의 `tech_stack`을 확인하고, 해당하는 `.claude/rules/tech/{tech}.md`를 로드하여 기술 스택 전문가로 동작합니다.
 
 ---
 
@@ -24,20 +24,20 @@ paths:
 ```
 
 **규칙 파일 로드 원칙:**
-- CLAUDE.md에 명시된 기술 스택에 **정확히 매칭되는** rules/{tech}.md만 로드합니다.
-- 관련 없는 기술 스택의 rules 파일은 **절대 로드하지 않습니다.** (예: Python 프로젝트에서 rules/csharp.md 로드 금지)
-- `rules/sprint-workflow.md`, `rules/notion.md` 등 기술 스택이 아닌 워크플로우/연동 규칙은 해당 시 로드합니다.
+- CLAUDE.md에 명시된 기술 스택에 **정확히 매칭되는** rules/tech/{tech}.md만 로드합니다.
+- 관련 없는 기술 스택의 rules 파일은 **절대 로드하지 않습니다.** (예: Python 프로젝트에서 rules/tech/csharp.md 로드 금지)
+- `rules/workflow/sprint-workflow.md`, `rules/workflow/notion.md` 등 기술 스택이 아닌 워크플로우/연동 규칙은 해당 시 로드합니다.
 
 **예시:**
-- CLAUDE.md에 `tech_stack: C#, WinForms` → `rules/csharp.md` 로드
-- CLAUDE.md에 `tech_stack: Python, FastAPI` → `rules/python.md` 로드
-- CLAUDE.md에 `tech_stack: TypeScript, React` → `rules/react.md` + `rules/typescript.md` 로드
-- Notion 문서 작성이 필요하면 → `rules/notion.md` 추가 로드
+- CLAUDE.md에 `tech_stack: C#, WinForms` → `rules/tech/csharp.md` 로드
+- CLAUDE.md에 `tech_stack: Python, FastAPI` → `rules/tech/python.md` 로드
+- CLAUDE.md에 `tech_stack: TypeScript, React` → `rules/tech/react.md` + `rules/tech/typescript.md` 로드
+- Notion 문서 작성이 필요하면 → `rules/workflow/notion.md` 추가 로드
 
-**해당 기술 스택의 rules/{tech}.md가 없는 경우:**
-- 에이전트는 작업을 시작하기 전에 **사용자에게 rules/{tech}.md 생성을 먼저 제안**합니다.
-- 사용자가 동의하면 **`.claude/rules/TEMPLATE.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일(언어 + 프레임워크 + 실전 패턴)을 생성한 뒤 작업을 진행합니다.
-- TEMPLATE.md의 작성 원칙, 템플릿 구조, 품질 체크리스트를 반드시 따릅니다.
+**해당 기술 스택의 rules/tech/{tech}.md가 없는 경우:**
+- 에이전트는 작업을 시작하기 전에 **사용자에게 rules/tech/{tech}.md 생성을 먼저 제안**합니다.
+- 사용자가 동의하면 **`.claude/templates/RULES-TEMPLATE.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일(언어 + 프레임워크 + 실전 패턴)을 생성한 뒤 작업을 진행합니다.
+- RULES-TEMPLATE.md의 작성 원칙, 템플릿 구조, 품질 체크리스트를 반드시 따릅니다.
 - rules 파일 없이 진행하면 기술 스택 전문성이 보장되지 않으므로, **생성을 강력히 권장**합니다.
 
 이를 통해 코드 리뷰, 빌드 검증, 코드 품질 기준이 **프로젝트의 기술 스택에 특화**됩니다.
@@ -50,7 +50,7 @@ paths:
 - ROADMAP.md + 코드베이스 분석 → `docs/sprint/sprint{N}.md` 생성
 - sprint{N}.md는 **실행 명세서**: Task별 파일 경로, Step, 검증 명령, 커밋 메시지 포함
 - CLAUDE.md의 기술 스택에 맞는 빌드/검증 명령을 sprint 문서에 반영
-- 해당 기술 스택의 베스트 프랙티스(rules/{tech}.md)를 기반으로 Task 설계
+- 해당 기술 스택의 베스트 프랙티스(rules/tech/{tech}.md)를 기반으로 Task 설계
 - 사용자가 검토/승인한 후 구현 단계로 진행
 
 ### 2. 구현 (sprint{N}.md 기준)
@@ -120,7 +120,7 @@ Sprint "완료" 선언 전 반드시 확인:
 ### 5. 리뷰 (Sprint Retrospective)
 - Sprint 완료 후 **반드시 실행 → 테스트 → 리뷰** 단계를 거친다
 - 사용자와 함께 테스트 가이드 기반으로 전체 플로우를 확인한다
-- 코드 리뷰 시 해당 기술 스택의 rules/{tech}.md 기준으로 전문적 리뷰 수행
+- 코드 리뷰 시 해당 기술 스택의 rules/tech/{tech}.md 기준으로 전문적 리뷰 수행
 - 사용자가 "확인 완료"할 때까지 다음 Sprint로 넘어가지 않는다
 
 #### 리뷰 시 발견된 이슈 → Backlog 분류
@@ -214,7 +214,7 @@ Sprint "완료" 선언 전 반드시 확인:
 ### 보안 원칙 (작업 중 상시 적용)
 
 보안은 리뷰 때 한 번 보는 것이 아니라 **매 작업마다 확인**한다.
-기술별 구체적 보안 규칙은 `rules/{tech}.md`의 보안 섹션을 따른다.
+기술별 구체적 보안 규칙은 `rules/tech/{tech}.md`의 보안 섹션을 따른다.
 
 | 원칙 | 설명 |
 |------|------|
@@ -232,7 +232,7 @@ Sprint "완료" 선언 전 반드시 확인:
 - [ ] 민감 정보가 클라이언트 코드나 로그에 노출되지 않는가?
 - [ ] 환경변수가 올바르게 분류되고 gitignore에 반영되었는가?
 
-### Layer 2: 기술 스택 전문 규칙 (rules/{tech}.md에서 로드)
+### Layer 2: 기술 스택 전문 규칙 (rules/tech/{tech}.md에서 로드)
 - 해당 언어/프레임워크의 베스트 프랙티스
 - 네이밍 컨벤션, 코드 구조, 패턴
 - 언어별 보안 취약점 (SQL Injection, XSS 등)
@@ -266,7 +266,7 @@ Sprint "완료" 선언 전 반드시 확인:
    - `agent-memory/` 하위 모든 MEMORY.md → 초기 상태로 리셋
    - `settings.local.json` → 이전 프로젝트 권한 확인 후 정리
 3. **CLAUDE.md 확인**: 프로젝트 루트에 `/CLAUDE.md`가 있는지 확인하고, 없으면 작성을 안내
-4. **기술 스택 rules 확인**: CLAUDE.md의 기술 스택에 해당하는 `rules/{tech}.md`가 있는지 확인하고, 없으면 생성을 제안
+4. **기술 스택 rules 확인**: CLAUDE.md의 기술 스택에 해당하는 `rules/tech/{tech}.md`가 있는지 확인하고, 없으면 생성을 제안
 
 > **원칙**: .claude 폴더는 범용 프레임워크입니다. 특정 프로젝트에서만 의미 있는 데이터는 포함하지 않습니다.
 > 프로젝트 종속 데이터는 `agent-memory/`에만 존재하며, 새 프로젝트 시작 시 반드시 리셋합니다.

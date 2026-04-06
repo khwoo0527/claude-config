@@ -11,7 +11,7 @@ paths:
 # React Native + Expo 개발 규칙
 
 > 이 파일은 React Native (Expo) 프로젝트에 범용적으로 적용되는 시니어 수준 규칙입니다.
-> TypeScript 기본 규칙은 `rules/typescript.md`를 참조합니다. 여기서는 React Native/Expo 특화 규칙만 다룹니다.
+> TypeScript 기본 규칙은 `rules/tech/typescript.md`를 참조합니다. 여기서는 React Native/Expo 특화 규칙만 다룹니다.
 > 프로젝트별 설정, 빌드 명령, 폴더 구조는 `/CLAUDE.md`에 정의합니다.
 
 ---

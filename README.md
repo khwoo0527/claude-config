@@ -50,8 +50,8 @@ cp -r {기존프로젝트}/.claude/ {새프로젝트}/.claude/
 
 ### 4. 기술 스택 규칙 확인
 
-CLAUDE.md에 명시한 기술 스택의 `rules/{tech}.md`가 있는지 확인합니다.
-없으면 Claude에게 생성을 요청하세요 — [TEMPLATE.md](rules/TEMPLATE.md) 기반으로 시니어 수준 규칙을 자동 생성합니다.
+CLAUDE.md에 명시한 기술 스택의 `rules/tech/{tech}.md`가 있는지 확인합니다.
+없으면 Claude에게 생성을 요청하세요 — [RULES-TEMPLATE.md](templates/RULES-TEMPLATE.md) 기반으로 시니어 수준 규칙을 자동 생성합니다.
 
 ### 5. 개발 시작!
 
@@ -73,7 +73,7 @@ graph TD
 
 | 단계 | 에이전트/커맨드 | 산출물 |
 |:----:|:-------------:|--------|
-| 0 | `project-init` | CLAUDE.md + rules/{tech}.md |
+| 0 | `project-init` | CLAUDE.md + rules/tech/{tech}.md |
 | 1 | `prd-to-roadmap` | ROADMAP.md |
 | 2 | `phase-planner` | docs/phase/phase{N}.md |
 | 3 | `sprint-planner` | docs/sprint/sprint{N}.md |
@@ -93,17 +93,21 @@ graph TD
 ├── ⚙️ settings.json                 Claude Code 권한 설정 (공유)
 ├── ⚙️ settings.local.json           로컬 전용 설정 (환경별, git 제외)
 │
-├── 📏 rules/                        규칙 라이브러리
-│   ├── TEMPLATE.md                    rules 작성 메타 템플릿
-│   ├── session-init.md                세션 컨텍스트 로딩 규칙
-│   ├── prd-guide.md                   PRD 작성 품질 가이드
-│   ├── sprint-workflow.md             스프린트/핫픽스 워크플로우
-│   ├── notion.md                      Notion 문서 작성 가이드
-│   ├── typescript.md                  TypeScript 베스트 프랙티스
-│   ├── react-native.md                React Native + Expo
-│   ├── supabase.md                    Supabase
-│   ├── csharp.md                      C#
-│   └── {tech}.md                      (프로젝트 진행하며 확장)
+├── 📏 rules/                        규칙 라이브러리 (자동 로딩)
+│   ├── workflow/                      워크플로우 규칙
+│   │   ├── session-init.md              세션 컨텍스트 로딩 규칙
+│   │   ├── prd-guide.md                 PRD 작성 품질 가이드
+│   │   ├── sprint-workflow.md           스프린트/핫픽스 워크플로우
+│   │   └── notion.md                    Notion 문서 작성 가이드
+│   └── tech/                          기술 스택 전문 규칙
+│       ├── typescript.md                TypeScript 베스트 프랙티스
+│       ├── react-native.md              React Native + Expo
+│       ├── supabase.md                  Supabase
+│       ├── csharp.md                    C#
+│       └── {tech}.md                    (프로젝트 진행하며 확장)
+│
+├── 📐 templates/                    문서 생성 가이드 (수동 참조)
+│   └── RULES-TEMPLATE.md             rules 작성 메타 템플릿
 │
 ├── 🤖 agents/                       자동화 에이전트 (8개)
 │   ├── project-init.md                새 프로젝트 초기 설정
@@ -144,8 +148,8 @@ graph TD
 
 ```mermaid
 graph TD
-    A["CLAUDE.md\n(프로젝트 정의)"] --> B["rules/{tech}.md\n(기술 전문 규칙)"]
-    A --> C["rules/workflow.md\n(워크플로우 규칙)"]
+    A["CLAUDE.md\n(프로젝트 정의)"] --> B["rules/tech/{tech}.md\n(기술 전문 규칙)"]
+    A --> C["rules/workflow/*.md\n(워크플로우 규칙)"]
     B --> D["agents/ & commands/\n(기술 스택 전문가 동작)"]
     C --> D
     D --> E["✨ 시니어 수준 코드 품질"]
@@ -165,30 +169,29 @@ graph TD
 
 | 파일 | 용도 | 로딩 시점 |
 |------|------|----------|
-| [session-init.md](rules/session-init.md) | 세션 시작 시 컨텍스트 로딩 | 매 세션 |
-| [sprint-workflow.md](rules/sprint-workflow.md) | 스프린트/핫픽스 프로세스 | Sprint 작업 시 |
-| [prd-guide.md](rules/prd-guide.md) | PRD 작성 품질 기준 | PRD 작성/검토 시 |
-| [notion.md](rules/notion.md) | Notion 문서 작성 가이드 | 문서 정리 시 |
-| [TEMPLATE.md](rules/TEMPLATE.md) | rules 파일 작성 메타 템플릿 | 새 규칙 생성 시 |
+| [session-init.md](rules/workflow/session-init.md) | 세션 시작 시 컨텍스트 로딩 | 매 세션 |
+| [sprint-workflow.md](rules/workflow/sprint-workflow.md) | 스프린트/핫픽스 프로세스 | Sprint 작업 시 |
+| [prd-guide.md](rules/workflow/prd-guide.md) | PRD 작성 품질 기준 | PRD 작성/검토 시 |
+| [notion.md](rules/workflow/notion.md) | Notion 문서 작성 가이드 | 문서 정리 시 |
+| [RULES-TEMPLATE.md](templates/RULES-TEMPLATE.md) | rules 파일 작성 메타 템플릿 | 새 규칙 생성 시 |
 
 ### 기술 전문 규칙 (제공됨)
 
-| 기술 스택 | 파일 | 점수 | Level |
-|----------|------|:----:|:-----:|
-| TypeScript | [typescript.md](rules/typescript.md) | 65 | 2 |
-| React Native + Expo | [react-native.md](rules/react-native.md) | 85 | 3 |
-| Supabase | [supabase.md](rules/supabase.md) | 84 | 3 |
-| C# | [csharp.md](rules/csharp.md) | 83 | 3 |
+| 기술 스택 | 파일 | 점수 |
+|----------|------|:----:|
+| TypeScript | [typescript.md](rules/tech/typescript.md) | 72 |
+| React Native + Expo | [react-native.md](rules/tech/react-native.md) | 85 |
+| Supabase | [supabase.md](rules/tech/supabase.md) | 88 |
+| C# | [csharp.md](rules/tech/csharp.md) | 40 |
 
-> 점수는 [TEMPLATE.md](rules/TEMPLATE.md)의 6개 카테고리 기반 평가 체계 (Level 0~4, 0~100점)
-> 카테고리: 구조(10) + 코드예시(20) + 안티패턴(15) + 실전함정(20) + 검증(15) + 바이브코딩(20)
+> 점수는 [RULES-TEMPLATE.md](templates/RULES-TEMPLATE.md)의 4단계 품질 체크리스트 기준 (Level 1: 60 ~ Level 4: 95+)
 > 프로젝트 진행하면서 점진적으로 개선됩니다.
 
 ### 새 기술 스택 추가
 
 ```
-1. Claude에게 "rules/{tech}.md 만들어줘" 요청
-2. TEMPLATE.md 기반으로 시니어 수준 규칙 자동 생성
+1. Claude에게 "rules/tech/{tech}.md 만들어줘" 요청
+2. RULES-TEMPLATE.md 기반으로 시니어 수준 규칙 자동 생성
 3. 프로젝트 진행하면서 실전 함정/패턴 축적
 4. 다른 프로젝트에서도 그대로 재사용
 ```
@@ -326,7 +329,7 @@ graph TD
 이 프레임워크는 프로젝트를 진행할수록 강해집니다.
 
 ```
-📦 새 기술 스택       →  rules/{tech}.md 생성  →  다음 프로젝트에서 재사용
+📦 새 기술 스택       →  rules/tech/{tech}.md 생성  →  다음 프로젝트에서 재사용
 🔧 워크플로우 개선     →  agents/ 수정         →  모든 프로젝트에 즉시 적용
 🤖 반복 작업 발견      →  agents/{name}.md 추가 →  자동화 확대
 📋 실전 함정 발견      →  rules에 추가          →  같은 실수 반복 방지
@@ -343,7 +346,7 @@ graph TD
 |------|------|----------|
 | `CLAUDE.md` | 프로젝트 정의 (기술 스택, 빌드, 구조) | 수동 작성 |
 | `ROADMAP.md` | Phase/Sprint 전체 로드맵 | `prd-to-roadmap` 에이전트 |
-| `docs/prd.md` | 요구사항 정의서 | 수동 작성 ([가이드](rules/prd-guide.md)) |
+| `docs/prd.md` | 요구사항 정의서 | 수동 작성 ([가이드](rules/workflow/prd-guide.md)) |
 | `docs/phase/phase{N}.md` | Phase 상세 계획 | `phase-planner` 에이전트 |
 | `docs/sprint/sprint{N}.md` | Sprint 실행 명세 | `sprint-planner` 에이전트 |
 | `deploy.md` | 배포 기록 및 검증 결과 | 자동 생성 |

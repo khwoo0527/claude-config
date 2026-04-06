@@ -23,9 +23,9 @@ memory: project
 
 1. `/CLAUDE.md`를 읽어 기술 스택, 프로젝트 구조, 빌드 명령, 코드 컨벤션을 확인합니다.
 2. `.claude/rules/` 하위에서 CLAUDE.md의 기술 스택에 해당하는 규칙 파일을 로드합니다.
-   - 예: 기술 스택이 C#이면 `rules/csharp.md`, Python이면 `rules/python.md`
-   - **해당 기술 스택의 rules/{tech}.md가 없는 경우**: 작업을 시작하기 전에 사용자에게 rules/{tech}.md 생성을 먼저 제안합니다. 사용자가 동의하면 **`.claude/rules/TEMPLATE.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일(언어 + 프레임워크 + 실전 패턴)을 생성한 뒤 작업을 진행합니다.
-3. `.claude/rules/sprint-workflow.md`를 읽어 워크플로우 규칙을 확인합니다.
+   - 예: 기술 스택이 C#이면 `rules/tech/csharp.md`, Python이면 `rules/tech/python.md`
+   - **해당 기술 스택의 rules/tech/{tech}.md가 없는 경우**: 작업을 시작하기 전에 사용자에게 rules/tech/{tech}.md 생성을 먼저 제안합니다. 사용자가 동의하면 **`.claude/templates/RULES-TEMPLATE.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일(언어 + 프레임워크 + 실전 패턴)을 생성한 뒤 작업을 진행합니다.
+3. `.claude/rules/workflow/sprint-workflow.md`를 읽어 워크플로우 규칙을 확인합니다.
 
 ### 2단계: 요구사항 분석
 
@@ -120,7 +120,7 @@ memory: project
 - [ ] Sprint 범위가 현실적인가? (1인 개발 기준 1 Sprint = 1~2일)
 - [ ] 완료 기준이 측정 가능한가?
 - [ ] 기존 재사용 자산이 적절히 활용되었는가?
-- [ ] 기술 스택 규칙(rules/{tech}.md)의 주요 원칙이 반영되었는가?
+- [ ] 기술 스택 규칙(rules/tech/{tech}.md)의 주요 원칙이 반영되었는가?
 
 ## Phase 설계 원칙
 

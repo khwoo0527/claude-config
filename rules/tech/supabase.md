@@ -10,7 +10,7 @@ paths:
 # Supabase 개발 규칙
 
 > 이 파일은 Supabase(PostgreSQL + Auth + Realtime + Storage)를 백엔드로 사용하는 프로젝트에 범용적으로 적용되는 시니어 수준 규칙입니다.
-> TypeScript 기본 규칙은 `rules/typescript.md`, React Native 규칙은 `rules/react-native.md`를 참조합니다.
+> TypeScript 기본 규칙은 `rules/tech/typescript.md`, React Native 규칙은 `rules/tech/react-native.md`를 참조합니다.
 > 프로젝트별 설정, 테이블 스키마, RLS 정책은 `/CLAUDE.md`에 정의합니다.
 
 ## 핵심 원칙
