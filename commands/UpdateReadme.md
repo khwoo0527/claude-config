@@ -24,7 +24,7 @@
 | 워크플로우 규칙 | `rules/workflow/*.md` 글롭 | 파일명 + 첫 헤더/요약 |
 | 메모리 | `memory/*.md` 글롭 | 카테고리별 prefix 카운트 (`user_*`, `feedback_*` 등) |
 | 디자인 카탈로그 | `templates/designs/*.md` 글롭 | 파일 수 (브랜드 카운트) |
-| 템플릿 | `templates/*.md` 글롭 | 파일명 (RULES-TEMPLATE, CLAUDE-TEMPLATE 등) |
+| 템플릿 | `templates/*.md` 글롭 | 파일명 (rules-guide, CLAUDE-TEMPLATE 등) |
 
 ### 2단계: README 현재 상태 파싱
 

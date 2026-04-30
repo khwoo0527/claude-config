@@ -6,7 +6,8 @@
 > **담지 않는 것**:
 > - 다른 프로젝트에 통하는 Notion 작성 노하우 → `rules/workflow/notion.md` 또는 `agents/notion-writer.md` 본문
 > - 사용자 작업 스타일 → `memory/feedback_*.md`
-> - Integration 토큰/페이지 ID 같은 민감 정보 → `CLAUDE.md` (프로젝트 정의서) 또는 `.env`
+> - 페이지 ID / 업데이트 트리거 → `CLAUDE.md` "Notion 연동" 섹션 (git 추적, 비밀 아님)
+> - **Integration 토큰** → 권장: `.env` / 환경변수 (git 제외) / 임시 허용: `CLAUDE.md` 평문 (private repo + 분리 일정 명시 시 — `feedback_principles.md` "토큰/시크릿 관리" 정책 따름)
 
 ---
 

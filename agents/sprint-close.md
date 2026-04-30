@@ -29,7 +29,7 @@ maxTurns: 30
 
 - `/CLAUDE.md`를 읽어 프로젝트 구조, 브랜치 전략, 빌드 명령을 확인합니다.
 - `.claude/rules/` 하위에서 CLAUDE.md의 기술 스택에 해당하는 규칙 파일을 로드합니다.
-  - **해당 기술 스택의 rules/tech/{tech}.md가 없는 경우**: 작업을 시작하기 전에 사용자에게 rules/tech/{tech}.md 생성을 먼저 제안합니다. 사용자가 동의하면 **`.claude/templates/RULES-TEMPLATE.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일(언어 + 프레임워크 + 실전 패턴)을 생성한 뒤 작업을 진행합니다.
+  - **해당 기술 스택의 rules/tech/{tech}.md가 없는 경우**: 작업을 시작하기 전에 사용자에게 rules/tech/{tech}.md 생성을 먼저 제안합니다. 사용자가 동의하면 **`.claude/rules/workflow/rules-guide.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일(언어 + 프레임워크 + 실전 패턴)을 생성한 뒤 작업을 진행합니다.
 - 현재 브랜치와 스프린트 번호를 확인합니다.
 - `ROADMAP.md`를 읽어 해당 스프린트의 상태를 파악합니다.
 - `deploy.md`를 읽어 현재 미완료 항목을 파악합니다.
@@ -130,7 +130,7 @@ EOF
 - [ ] ROADMAP.md — 스프린트 상태 `✅ 완료` + 대시보드 갱신
 - [ ] sprint{N}.md — 상태 `✅ 완료` + 각 Task 완료 기준 체크박스 `[ ]` → `[x]`
 - [ ] deploy.md — 아카이빙 + 새 기록 추가
-- [ ] (해당 시) sprint-planner MEMORY.md — 학습 가치 있는 패턴이 발견된 경우만, 사용자 컨펌 후 추가
+- [ ] (해당 시) sprint-planner MEMORY.md — 다음 Sprint 계획 시 도움될 코드베이스 컨텍스트가 발견된 경우만, 사용자 컨펌 후 추가
 
 하나라도 누락되었으면 보고하기 전에 완료합니다.
 

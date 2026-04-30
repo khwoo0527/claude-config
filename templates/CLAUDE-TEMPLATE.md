@@ -95,10 +95,15 @@
 - {커밋 메시지 형식}
 
 ## 외부 연동 (해당 시)
-- {API, 서비스 연동 정보}
+- {API/서비스명}: 인증 방식 / 환경변수명 / 문서 링크
+
+> **토큰/시크릿 관리**: 정석은 `.env` / 환경변수 분리.
+> 임시 평문 보관 시 ⚠️ 위험 표시 + 분리 일정 명시 필수 (public 전환 전 반드시 .env 분리).
+> 자세한 정책: [`memory/feedback_principles.md`](../.claude/memory/feedback_principles.md) "토큰/시크릿 관리" 섹션 참조.
 
 ## Notion 연동 (해당 시)
 - 루트 페이지: {URL}
-- Integration 토큰: 환경 변수 `NOTION_TOKEN` 으로 관리
 - 하위 페이지 ID: {각 페이지별 ID}
+- Integration 토큰: **권장** — 환경 변수 `NOTION_TOKEN` (.env / .env.local)
+  - 임시 평문 (private repo 한정): `토큰 값` ⚠️ public 전환 전 .env 분리 필수 (분리 일정: {예: Phase 2})
 ````

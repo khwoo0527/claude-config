@@ -37,6 +37,9 @@
 | **Sprint 계획** | `sprint-workflow.md` → `ROADMAP.md` | `rules/tech/{tech}.md` (Task 설계 시) |
 | **단순 질문/탐색** | (메모리만으로 충분) | 질문 관련 rules (해당 시) |
 | **새 프로젝트 시작** | `project-init` agent 호출 | (agent 가 정리/세팅 절차 수행 — 별도 사전 로딩 불필요) |
+| **rules 작성/수정** (`rules/tech/*` 또는 `rules/workflow/*`) | `rules-guide.md` + `tech-knowledge.md` | 수정 대상이 기존 파일이면 해당 파일 |
+| **에이전트 작성/수정** (`agents/*`) | `agent-guide.md` + `agent-memory.md` | 수정 대상이 기존 에이전트면 해당 파일 |
+| **.claude 폴더 구조 변경** (새 문서/폴더 추가, 이동, 정리) | `folder-structure.md` | 작업 종류에 따라 `rules-guide.md` / `agent-guide.md` 등 |
 
 > **메모리 로딩은 항상 1번 단계로 선행**. 자세한 메모리 로딩 가이드는 [MEMORY.md](../../memory/MEMORY.md) 참조.
 
@@ -57,6 +60,9 @@
 | `rules/tech/{tech}.md` 미로딩 | 해당 기술의 안티패턴을 모르고 그대로 코드 생성 (예: 하드코딩, 잘못된 네이밍) |
 | `sprint-workflow.md` 미로딩 | 품질 기준/보안 원칙 무시, 우회/땜빵 해결책 사용 |
 | `ROADMAP.md` 미로딩 | 프로젝트 진행 상황을 모르고 엉뚱한 작업 시작, 이미 완료된 작업 재시도 |
+| `rules-guide.md` 미로딩 (rules 작성 시) | 4단계 품질 체크리스트 무시 → Level 1 미만 규칙 양산, 시니어 수준 미달 |
+| `agent-guide.md` 미로딩 (에이전트 작성 시) | 5개 에이전트 통일 패턴 위반 (frontmatter 폐지 키 사용, 진입 절차 중복 명시 등) |
+| `folder-structure.md` 미로딩 (.claude 구조 변경 시) | 폴더 정체성 위반 (가이드를 templates/ 에, 빈 골격을 rules/ 에 등) |
 
 > 메모리 미로딩 시 발생 문제는 [MEMORY.md](../../memory/MEMORY.md) 참조.
 

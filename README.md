@@ -51,7 +51,7 @@ cp -r {기존프로젝트}/.claude/ {새프로젝트}/.claude/
 ### 4. 기술 스택 규칙 확인
 
 CLAUDE.md에 명시한 기술 스택의 `rules/tech/{tech}.md`가 있는지 확인합니다.
-없으면 Claude에게 생성을 요청하세요 — [RULES-TEMPLATE.md](templates/RULES-TEMPLATE.md) 기반으로 시니어 수준 규칙을 자동 생성합니다.
+없으면 Claude에게 생성을 요청하세요 — [rules-guide.md](rules/workflow/rules-guide.md) 기반으로 시니어 수준 규칙을 자동 생성합니다.
 
 ### 5. 개발 시작!
 
@@ -93,12 +93,17 @@ graph TD
 ├── ⚙️ settings.json                 Claude Code 권한 설정 (공유)
 ├── ⚙️ settings.local.json           로컬 전용 설정 (환경별, git 제외)
 │
-├── 📏 rules/                        규칙 라이브러리 (자동 로딩)
-│   ├── workflow/                      워크플로우 규칙
-│   │   ├── session-init.md              세션 컨텍스트 로딩 규칙
+├── 📏 rules/                        규칙 라이브러리 (작업 시점 수동 로딩)
+│   ├── workflow/                      워크플로우 규칙 + 가이드/정책
+│   │   ├── session-init.md              세션 컨텍스트 로딩 규칙 + 작업 유형별 매트릭스
 │   │   ├── prd-guide.md                 PRD 작성 품질 가이드
 │   │   ├── sprint-workflow.md           스프린트/핫픽스 워크플로우
-│   │   └── notion.md                    Notion 문서 작성 가이드
+│   │   ├── notion.md                    Notion 문서 작성 가이드
+│   │   ├── rules-guide.md               rules 파일 작성 메타 가이드
+│   │   ├── tech-knowledge.md            rules/tech 노하우 누적 정책
+│   │   ├── agent-guide.md               새 에이전트 작성 표준
+│   │   ├── agent-memory.md              agent-memory 정책
+│   │   └── folder-structure.md          .claude 폴더 정체성 + 신설 시 결정 트리
 │   └── tech/                          기술 스택 전문 규칙
 │       ├── typescript.md                TypeScript 베스트 프랙티스
 │       ├── react-native.md              React Native + Expo
@@ -106,11 +111,11 @@ graph TD
 │       ├── csharp.md                    C#
 │       └── {tech}.md                    (프로젝트 진행하며 확장)
 │
-├── 📐 templates/                    문서 생성 가이드 (수동 참조)
-│   ├── RULES-TEMPLATE.md             rules 작성 메타 템플릿
-│   └── designs/                      DESIGN.md 레퍼런스 (54개 브랜드)
-│       ├── design-catalog.md          디자인 추천 매트릭스
-│       └── {brand}.md                 브랜드별 디자인 시스템 (Google Stitch 형식)
+├── 📐 templates/                    자동 복사용 빈 골격 + 카탈로그
+│   ├── CLAUDE-TEMPLATE.md             프로젝트 루트 CLAUDE.md 의 빈 골격
+│   └── designs/                       DESIGN.md 레퍼런스 (54개 브랜드)
+│       ├── design-catalog.md            디자인 추천 매트릭스
+│       └── {brand}.md                   브랜드별 디자인 시스템 (Google Stitch 형식)
 │
 ├── 🤖 agents/                       자동화 에이전트 (8개)
 │   ├── project-init.md                새 프로젝트 초기 설정
@@ -122,9 +127,12 @@ graph TD
 │   ├── hotfix-close.md                Hotfix 마무리
 │   └── deploy-prod.md                 배포 준비
 │
-├── ⌨️ commands/                      사용자 실행 커맨드 (2개)
-│   ├── sprint-dev.md                  /sprint-dev {N}
-│   └── design-review.md              /design-review — DESIGN.md 풀 파워 검증
+├── ⌨️ commands/                      사용자 실행 커맨드 (5개)
+│   ├── InitLoad.md                    /InitLoad — 세션 시작 시 메모리/세션 절차 일괄 로딩
+│   ├── sprint-dev.md                  /sprint-dev {N} — sprint{N}.md 기반 Task 구현
+│   ├── design-review.md               /design-review — DESIGN.md 풀 파워 검증
+│   ├── UpdateReadme.md                /UpdateReadme — README 동기화
+│   └── SyncClaudeConfig.md            /SyncClaudeConfig — claude-config 양방향 동기화
 │
 ├── 🧠 memory/                       사용자 선호 (범용, 프로젝트 간 재사용)
 │   ├── MEMORY.md                      메모리 인덱스
@@ -145,6 +153,8 @@ graph TD
 > | **성격** | 사용자 작업 스타일, 선호도 | 에이전트의 프로젝트 진행 기록 |
 > | **범위** | 프로젝트 무관 (범용) | 프로젝트 종속 |
 > | **새 프로젝트** | 그대로 유지 | 리셋 필수 |
+>
+> 자세한 폴더 정체성 + 신설 시 결정 기준은 [`folder-structure.md`](rules/workflow/folder-structure.md) 참조.
 
 ---
 
@@ -173,11 +183,15 @@ graph TD
 
 | 파일 | 용도 | 로딩 시점 |
 |------|------|----------|
-| [session-init.md](rules/workflow/session-init.md) | 세션 시작 시 컨텍스트 로딩 | 매 세션 |
+| [session-init.md](rules/workflow/session-init.md) | 세션 시작 시 컨텍스트 로딩 + 작업 유형별 매트릭스 | 매 세션 |
 | [sprint-workflow.md](rules/workflow/sprint-workflow.md) | 스프린트/핫픽스 프로세스 | Sprint 작업 시 |
 | [prd-guide.md](rules/workflow/prd-guide.md) | PRD 작성 품질 기준 | PRD 작성/검토 시 |
 | [notion.md](rules/workflow/notion.md) | Notion 문서 작성 가이드 | 문서 정리 시 |
-| [RULES-TEMPLATE.md](templates/RULES-TEMPLATE.md) | rules 파일 작성 메타 템플릿 | 새 규칙 생성 시 |
+| [rules-guide.md](rules/workflow/rules-guide.md) | rules 파일 작성 메타 가이드 | 새 규칙 생성/수정 시 |
+| [tech-knowledge.md](rules/workflow/tech-knowledge.md) | rules/tech 노하우 누적 정책 | rules/tech 작성 시 |
+| [agent-guide.md](rules/workflow/agent-guide.md) | 새 에이전트 작성 표준 | 에이전트 작성/수정 시 |
+| [agent-memory.md](rules/workflow/agent-memory.md) | agent-memory 정책 | 에이전트 작성/캐시 작업 시 |
+| [folder-structure.md](rules/workflow/folder-structure.md) | .claude 폴더 정체성 + 신설 시 결정 트리 | .claude 구조 변경 시 |
 
 ### 기술 전문 규칙 (제공됨)
 
@@ -188,14 +202,14 @@ graph TD
 | Supabase | [supabase.md](rules/tech/supabase.md) | 88 |
 | C# | [csharp.md](rules/tech/csharp.md) | 40 |
 
-> 점수는 [RULES-TEMPLATE.md](templates/RULES-TEMPLATE.md)의 4단계 품질 체크리스트 기준 (Level 1: 60 ~ Level 4: 95+)
+> 점수는 [rules-guide.md](rules/workflow/rules-guide.md)의 4단계 품질 체크리스트 기준 (Level 1: 60 ~ Level 4: 95+)
 > 프로젝트 진행하면서 점진적으로 개선됩니다.
 
 ### 새 기술 스택 추가
 
 ```
 1. Claude에게 "rules/tech/{tech}.md 만들어줘" 요청
-2. RULES-TEMPLATE.md 기반으로 시니어 수준 규칙 자동 생성
+2. rules-guide.md 기반으로 시니어 수준 규칙 자동 생성
 3. 프로젝트 진행하면서 실전 함정/패턴 축적
 4. 다른 프로젝트에서도 그대로 재사용
 ```
@@ -221,7 +235,11 @@ graph TD
 
 | 커맨드 | 용도 |
 |--------|------|
+| `/InitLoad` | 세션 시작 시 메모리(`.claude/memory/*`) + 세션 절차 일괄 로딩 |
 | `/sprint-dev {N}` | sprint{N}.md를 읽고 Task별로 구현 실행 |
+| `/design-review` | DESIGN.md 풀 파워 검증 (브랜드 카탈로그 비교) |
+| `/UpdateReadme` | README 동기화 (변경 사항 일괄 반영) |
+| `/SyncClaudeConfig` | claude-config 마스터 ↔ 다른 프로젝트 양방향 동기화 |
 
 ---
 

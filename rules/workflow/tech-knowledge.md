@@ -60,7 +60,7 @@ paths:
 | 베스트 프랙티스 | "패턴" 또는 "권장 사항" 섹션 |
 | 보안 이슈 | "보안" 섹션 |
 
-> 적합한 섹션이 없으면 새로 만든다. 단 [`RULES-TEMPLATE.md`](../../templates/RULES-TEMPLATE.md) 의 구조 원칙을 따른다.
+> 적합한 섹션이 없으면 새로 만든다. 단 [`rules-guide.md`](../../rules/workflow/rules-guide.md) 의 구조 원칙을 따른다.
 
 ### 항목 형식
 - 한 항목당 1~3줄 권장
@@ -70,7 +70,7 @@ paths:
 
 ## 5. 점수/품질 기준
 
-[`RULES-TEMPLATE.md`](../../templates/RULES-TEMPLATE.md) 의 자가 채점 기준을 따른다. 누적 후 점수 변화는 별도 보고 X (외부 문서 README 갱신은 [`/UpdateReadme`](../../commands/UpdateReadme.md) 시점에).
+[`rules-guide.md`](../../rules/workflow/rules-guide.md) 의 자가 채점 기준을 따른다. 누적 후 점수 변화는 별도 보고 X (외부 문서 README 갱신은 [`/UpdateReadme`](../../commands/UpdateReadme.md) 시점에).
 
 ---
 

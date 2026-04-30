@@ -48,7 +48,7 @@ color: green
 | `.claude/memory/` | `user_*.md`, `feedback_*.md`, `reference_*.md`, `MEMORY.md` (가이드) |
 | `.claude/rules/` | 모든 파일 (기술 스택별 rules는 paths 매칭으로 자동 필터링) |
 | `.claude/agents/`, `.claude/commands/` | 모든 파일 (범용 워크플로우) |
-| `.claude/templates/` | 모든 파일 (RULES-TEMPLATE, designs 카탈로그) |
+| `.claude/templates/` | 모든 파일 (rules-guide, designs 카탈로그) |
 
 #### 정리 순서
 1. `.claude/agent-memory/*/`에서 프로젝트 종속 `.md` 파일 삭제 (`MEMORY.md` 외 파일이 있는 경우).
@@ -128,8 +128,8 @@ color: green
 
 **규칙 파일이 없는 경우:**
 - 사용자에게 생성을 제안합니다.
-- 동의하면 **`.claude/templates/RULES-TEMPLATE.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일을 생성합니다.
-- RULES-TEMPLATE.md의 작성 원칙(바이브 코딩 최적화, 시니어 전문성, 안티패턴 포함)과 품질 체크리스트를 반드시 따릅니다.
+- 동의하면 **`.claude/rules/workflow/rules-guide.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일을 생성합니다.
+- rules-guide.md의 작성 원칙(바이브 코딩 최적화, 시니어 전문성, 안티패턴 포함)과 품질 체크리스트를 반드시 따릅니다.
 - 규칙 파일에 포함할 내용:
   - **언어 수준**: 네이밍 컨벤션, 코드 구조, 타입 시스템, 에러 처리, 보안
   - **프레임워크 수준**: 컴포넌트/모듈 설계 패턴, 상태 관리, 라우팅, 미들웨어

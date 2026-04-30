@@ -29,7 +29,7 @@ maxTurns: 30
 
 - `/CLAUDE.md`를 읽어 기술 스택, 프로젝트 구조, 빌드 명령, 브랜치 전략을 확인합니다.
 - `.claude/rules/` 하위에서 CLAUDE.md의 기술 스택에 해당하는 규칙 파일을 **모두** 로드합니다.
-  - **해당 기술 스택의 rules/tech/{tech}.md가 없는 경우**: 작업을 시작하기 전에 사용자에게 rules/tech/{tech}.md 생성을 먼저 제안합니다. 사용자가 동의하면 **`.claude/templates/RULES-TEMPLATE.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일(언어 + 프레임워크 + 실전 패턴)을 생성한 뒤 작업을 진행합니다.
+  - **해당 기술 스택의 rules/tech/{tech}.md가 없는 경우**: 작업을 시작하기 전에 사용자에게 rules/tech/{tech}.md 생성을 먼저 제안합니다. 사용자가 동의하면 **`.claude/rules/workflow/rules-guide.md`를 참조하여** 해당 기술 스택의 시니어 수준 규칙 파일(언어 + 프레임워크 + 실전 패턴)을 생성한 뒤 작업을 진행합니다.
 - 현재 브랜치가 `hotfix/*` 형식인지 확인합니다.
 - `git diff develop...HEAD --name-only`로 변경된 파일 목록을 확인합니다.
 - 변경 범위(파일 수, 코드 줄 수)를 점검하고 hotfix 기준(파일 3개 이하, 코드 50줄 이하)을 충족하는지 확인합니다.
