@@ -61,7 +61,7 @@
 | `sprint-workflow.md` 미로딩 | 품질 기준/보안 원칙 무시, 우회/땜빵 해결책 사용 |
 | `ROADMAP.md` 미로딩 | 프로젝트 진행 상황을 모르고 엉뚱한 작업 시작, 이미 완료된 작업 재시도 |
 | `rules-guide.md` 미로딩 (rules 작성 시) | 4단계 품질 체크리스트 무시 → Level 1 미만 규칙 양산, 시니어 수준 미달 |
-| `agent-guide.md` 미로딩 (에이전트 작성 시) | 5개 에이전트 통일 패턴 위반 (frontmatter 폐지 키 사용, 진입 절차 중복 명시 등) |
+| `agent-guide.md` 미로딩 (에이전트 작성 시) | 에이전트 통일 패턴 위반 (frontmatter 폐지 키 사용, 진입 절차 중복 명시 등) |
 | `folder-structure.md` 미로딩 (.claude 구조 변경 시) | 폴더 정체성 위반 (가이드를 templates/ 에, 빈 골격을 rules/ 에 등) |
 
 > 메모리 미로딩 시 발생 문제는 [MEMORY.md](../../memory/MEMORY.md) 참조.
