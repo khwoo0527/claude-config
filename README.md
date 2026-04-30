@@ -117,7 +117,7 @@ graph TD
 │       ├── design-catalog.md            디자인 추천 매트릭스
 │       └── {brand}.md                   브랜드별 디자인 시스템 (Google Stitch 형식)
 │
-├── 🤖 agents/                       자동화 에이전트 (9개)
+├── 🤖 agents/                       자동화 에이전트
 │   ├── project-init.md                새 프로젝트 초기 설정
 │   ├── prd-to-roadmap.md              PRD → ROADMAP 변환
 │   ├── phase-planner.md               Phase 상세 계획
@@ -128,7 +128,7 @@ graph TD
 │   ├── deploy-prod.md                 배포 준비
 │   └── notion-writer.md               Notion 페이지 작성/갱신 (외부 서비스 표준 예시)
 │
-├── ⌨️ commands/                      사용자 실행 커맨드 (5개)
+├── ⌨️ commands/                      사용자 실행 커맨드
 │   ├── InitLoad.md                    /InitLoad — 세션 시작 시 메모리/세션 절차 일괄 로딩
 │   ├── sprint-dev.md                  /sprint-dev {N} — sprint{N}.md 기반 Task 구현
 │   ├── design-review.md               /design-review — DESIGN.md 풀 파워 검증

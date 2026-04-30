@@ -159,28 +159,19 @@ color: blue | green | red | ...  # 시각 구분
 
 ---
 
-## 7. 살아있는 표준 — 9개 에이전트 패턴 카탈로그
+## 7. 살아있는 표준 — 패턴 분류 카탈로그
 
-새 에이전트 작성 시 다음 9개 에이전트 중 가장 가까운 패턴을 참고. **상단 5개**가 통일 패턴의 대표이고, **하단 4개**는 도메인 특화 변형이다.
+새 에이전트 작성 시 다음 분류 중 자기 에이전트가 어느 패턴에 속하는지 매핑하고, 대표 예시를 참고한다. 새 에이전트가 추가되어도 이 표는 갱신 불필요 — 패턴 자체가 카탈로그.
 
-### 대표 패턴 (5개)
+| 패턴 분류 | 특징 | 대표 예시 | 신규 에이전트 매핑 시 |
+|---|---|---|---|
+| **자기 캐시 보유** | 작업 컨텍스트 캐시 (`agent-memory/{name}/MEMORY.md`) 보유 — 다음 호출 시 복원 | `phase-planner`, `sprint-planner` | 반복 호출되며 컨텍스트 누적 가치 있는 경우 |
+| **자기 캐시 없음** | 외부 진실 원천(deploy.md / PR / 다른 에이전트 캐시) 에 기록 | `sprint-close`, `hotfix-close`, `deploy-prod` | 일회성 마무리/검증/배포 작업 |
+| **분기 누적 변형** | 작업 중 발견 노하우를 `rules/tech/*` 또는 `rules/workflow/*` 로 누적 | `sprint-review` (rules/tech), `prd-to-roadmap` (rules/workflow/prd-guide) | 도메인 노하우가 다른 프로젝트에도 통하는 경우 |
+| **외부 시스템 연동** | 외부 서비스 위치 정의 박스 1곳 + 본문 짧은 참조 (§ 3 패턴) | `notion-writer` | Notion/Slack/GitHub/Jira 등 외부 서비스 사용 |
+| **부트스트랩** | 다른 에이전트의 진입점 — `CLAUDE.md` / `rules/tech` 자동 생성 | `project-init` | 초기 세팅/스캐폴딩 — 워크플로우 시작점 |
 
-| 에이전트 | 특징 |
-|---|---|
-| [`phase-planner.md`](../../agents/phase-planner.md) | 9단계 작업 절차 + 자기 캐시 보유 + 전문가 검토 패턴 |
-| [`sprint-planner.md`](../../agents/sprint-planner.md) | 자기 캐시 + skill 매칭 패턴 |
-| [`sprint-close.md`](../../agents/sprint-close.md) | **자기 캐시 없음 — 다른 에이전트 캐시 사용** |
-| [`sprint-review.md`](../../agents/sprint-review.md) | 분기 1 변형 (코드 리뷰 → rules/tech 누적) |
-| [`prd-to-roadmap.md`](../../agents/prd-to-roadmap.md) | 분기 1 변형 (PRD 노하우 → rules/workflow/prd-guide) |
-
-### 도메인 특화 변형 (4개)
-
-| 에이전트 | 특징 |
-|---|---|
-| [`notion-writer.md`](../../agents/notion-writer.md) | **외부 서비스 위치 정의 패턴 표준 예시** (§ 3 참조) + 자기 캐시 보유 — 외부 시스템 연동 에이전트 작성 시 참고 |
-| [`deploy-prod.md`](../../agents/deploy-prod.md) | 자기 캐시 없음 + 외부 진실 원천(deploy.md) 기록 패턴 — 빌드/릴리즈/배포 관련 에이전트 작성 시 참고 |
-| [`hotfix-close.md`](../../agents/hotfix-close.md) | sprint-close 변형 (핫픽스 특화 — 자기 캐시 없음, 경량 리뷰) — 마무리/검증 에이전트 작성 시 참고 |
-| [`project-init.md`](../../agents/project-init.md) | 부트스트랩 변형 (CLAUDE.md/rules/tech 자동 생성, 다른 에이전트의 진입점) — 초기 세팅/스캐폴딩 에이전트 작성 시 참고 |
+> 한 에이전트가 여러 분류에 속할 수 있다 (예: `notion-writer` = 외부 시스템 연동 + 자기 캐시 보유). 가장 핵심인 것 1~2개에 매핑.
 
 ---
 
