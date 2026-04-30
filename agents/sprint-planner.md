@@ -293,16 +293,12 @@ Task별 `skill:` 헤더를 작성할 때 **판단 플로우차트**를 위에서
 
 ## 발견된 정보 분기 기록
 
-[`agent-memory 정책`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 에 따라 처리.
+분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 참조.
+**핵심**: 발견 시 사용자 컨펌 후 분기 위치에 기록 (위임 신호 시 자동 + 사후 보고).
 
-코드베이스 분석/Task 설계 중 발견한 정보 분기 판단:
-
-1. **다른 프로젝트에도 통하는 기술 노하우** (예: 기술 스택 함정/안티패턴) → `rules/tech/{tech}.md` 보강 (사용자 컨펌 후)
-2. **이 프로젝트의 코드베이스 컨텍스트** (예: 모듈/스키마 구조, 인프라 메모) → `agent-memory/sprint-planner/MEMORY.md` 에 캐시
-3. **공식 진행 상태** (Sprint 번호/현황) → `ROADMAP.md` 가 진실 원천. 시작 시 `ROADMAP.md` 를 읽어 다음 번호 도출 (캐시 X)
-4. **사용자 작업 스타일** → `memory/feedback_*.md`
-
-후보가 있으면 사용자에게 컨펌 (위치+내용 명시). 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.
+- 이 에이전트 캐시: `agent-memory/sprint-planner/MEMORY.md`
+- 주요 발견 영역: 코드베이스 컨텍스트 (인프라, 모듈/스키마 구조), Task 설계 시 발견한 구조적 함정
+- 관련 진실 원천: `ROADMAP.md`, `docs/sprint/sprint{N}.md` (다음 Sprint 번호는 ROADMAP 읽어 도출 — 캐시 X)
 
 ## 에러 처리
 

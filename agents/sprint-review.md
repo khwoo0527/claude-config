@@ -236,18 +236,14 @@ Sprint 결과가 Phase 계획에 영향을 주는지 확인합니다.
 
 ## 발견된 정보 분기 기록
 
-[`agent-memory 정책`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 에 따라 처리.
+분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 참조.
+**핵심**: 발견 시 사용자 컨펌 후 분기 위치에 기록 (위임 신호 시 자동 + 사후 보고).
 
-코드 리뷰에서 발견한 정보 분기 판단:
+- 이 에이전트 캐시: `agent-memory/sprint-review/MEMORY.md`
+- 주요 발견 영역: 이 프로젝트만의 반복 이슈 패턴
+- 관련 진실 원천: `deploy.md` (리뷰 결과/이슈 카운트는 캐시 X)
 
-1. **다른 프로젝트에도 통하는 기술 안티패턴/함정** (예: 특정 프레임워크의 보안/성능 이슈 패턴) → `rules/tech/{tech}.md` 보강 (**여기가 진짜 누적 위치 — 코드 리뷰가 가장 자주 발견하는 위치**)
-2. **이 프로젝트 코드베이스에서만 자주 보이는 이슈 패턴** (이 프로젝트 한정) → `agent-memory/sprint-review/MEMORY.md` 에 캐시
-3. **리뷰 결과/이슈 카운트** → `deploy.md` 가 진실 원천 (캐시 X)
-4. **사용자 작업 스타일** → `memory/feedback_*.md`
-
-> 코드 리뷰는 범용 노하우 발견의 핵심 경로. **다른 프로젝트에도 통할 패턴이면 적극적으로 `rules/tech/{tech}.md` 에 누적 제안**.
-
-후보가 있으면 사용자에게 컨펌 (위치+내용 명시). 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.
+> ⭐ **코드 리뷰는 범용 기술 노하우 발견의 핵심 경로**. 다른 프로젝트에도 통할 안티패턴/함정 발견 시 적극적으로 `rules/tech/{tech}.md` 에 누적 제안 (tech-knowledge.md 분기 1 정책).
 
 ## 에러 처리
 

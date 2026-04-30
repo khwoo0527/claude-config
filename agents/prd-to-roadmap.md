@@ -171,13 +171,10 @@ color: blue
 
 ## 발견된 정보 분기 기록
 
-[`agent-memory 정책`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 에 따라 처리.
+분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 참조.
+**핵심**: 발견 시 사용자 컨펌 후 분기 위치에 기록 (위임 신호 시 자동 + 사후 보고).
 
-PRD 분석 중 발견한 정보 분기 판단:
-
-1. **다른 프로젝트에도 통하는 PRD 작성/요구사항 도출 노하우** → `rules/workflow/prd-guide.md` 보강 (사용자 컨펌 후)
-2. **이 프로젝트의 비즈니스 컨텍스트/요구사항 이해 메모** (다음 ROADMAP 갱신 시 빠른 컨텍스트 복원용) → `agent-memory/prd-to-roadmap/MEMORY.md` 에 캐시
-3. **공식 진행 상태** (ROADMAP 구조/Phase 분할) → `ROADMAP.md` 가 진실 원천 (캐시 X)
-4. **사용자 작업 스타일** → `memory/feedback_*.md`
-
-후보가 있으면 사용자에게 컨펌 (위치+내용 명시). 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.
+- 이 에이전트 캐시: `agent-memory/prd-to-roadmap/MEMORY.md`
+- 주요 발견 영역: 비즈니스 컨텍스트, 요구사항 이해 메모, 우선순위 판단 근거
+- 분기 1 변형: PRD 작성/요구사항 도출 노하우는 `rules/tech/` 가 아닌 [`rules/workflow/prd-guide.md`](../rules/workflow/prd-guide.md) 로 누적
+- 관련 진실 원천: `docs/prd.md`, `ROADMAP.md` (공식 진행 상태는 캐시 X)

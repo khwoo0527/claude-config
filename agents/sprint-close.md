@@ -16,7 +16,7 @@ maxTurns: 30
 1. ROADMAP.md 진행 상태 업데이트
 2. sprint 브랜치 → **develop** PR 생성
 3. deploy.md 아카이빙
-4. sprint-planner 메모리 학습/패턴 누적 검토 (해당 시 컨펌 후)
+4. 발견된 정보 분기 기록 검토 (해당 시 컨펌 후 — 본문 5단계의 분기 룰 따름)
 5. Notion 업데이트 안내
 6. 최종 보고
 
@@ -98,16 +98,12 @@ EOF
 
 ### 5단계: 발견된 정보 분기 기록
 
-[`agent-memory 정책`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 에 따라 처리.
+분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 참조.
+**핵심**: 발견 시 사용자 컨펌 후 분기 위치에 기록 (위임 신호 시 자동 + 사후 보고).
 
-이번 스프린트에서 발견한 정보 분기 판단:
-
-1. **다른 프로젝트에도 통하는 기술 노하우** (예: 특정 라이브러리/프레임워크 함정) → `rules/tech/{tech}.md` 보강 (사용자 컨펌 후)
-2. **이 프로젝트의 코드베이스 컨텍스트** (예: 인프라 구성, 핵심 모듈 메모) → `agent-memory/sprint-planner/MEMORY.md` 에 캐시 (다음 Sprint 계획 시 빠른 컨텍스트 복원용)
-3. **공식 진행 상태** (Sprint 번호/완료 현황) → `ROADMAP.md`/`sprint{N}.md` 가 진실 원천 (이미 2단계에서 갱신됨, 별도 캐시 불필요)
-4. **사용자 작업 스타일** → `memory/feedback_*.md`
-
-후보가 있으면 사용자에게 컨펌 (위치+내용 명시). 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.
+- 이 에이전트 캐시: **자기 캐시 없음** — 발견한 코드베이스 컨텍스트는 `agent-memory/sprint-planner/MEMORY.md` 에 기록 (다음 Sprint 계획 시 활용)
+- 주요 발견 영역: 이번 Sprint 에서 다음 Sprint 계획 시 도움될 코드베이스 컨텍스트, 구조적 함정
+- 관련 진실 원천: `ROADMAP.md`, `sprint{N}.md`, `deploy.md` (공식 진행 상태는 이미 2단계에서 갱신 — 캐시 X)
 
 ### 6단계: 최종 보고
 
