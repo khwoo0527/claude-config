@@ -30,7 +30,7 @@ color: blue | green | red | ...  # 시각 구분
 
 ---
 
-## 2. 본문 구조 표준 (5개 에이전트 통일 패턴)
+## 2. 본문 구조 표준 (통일 패턴)
 
 ```markdown
 당신은 **{역할}**입니다. {한 문단 — 무엇을 하는 에이전트인지}.
@@ -159,9 +159,11 @@ color: blue | green | red | ...  # 시각 구분
 
 ---
 
-## 7. 살아있는 표준 — 5개 에이전트 참조
+## 7. 살아있는 표준 — 9개 에이전트 패턴 카탈로그
 
-새 에이전트 작성 시 다음 에이전트의 패턴을 참고:
+새 에이전트 작성 시 다음 9개 에이전트 중 가장 가까운 패턴을 참고. **상단 5개**가 통일 패턴의 대표이고, **하단 4개**는 도메인 특화 변형이다.
+
+### 대표 패턴 (5개)
 
 | 에이전트 | 특징 |
 |---|---|
@@ -170,6 +172,15 @@ color: blue | green | red | ...  # 시각 구분
 | [`sprint-close.md`](../../agents/sprint-close.md) | **자기 캐시 없음 — 다른 에이전트 캐시 사용** |
 | [`sprint-review.md`](../../agents/sprint-review.md) | 분기 1 변형 (코드 리뷰 → rules/tech 누적) |
 | [`prd-to-roadmap.md`](../../agents/prd-to-roadmap.md) | 분기 1 변형 (PRD 노하우 → rules/workflow/prd-guide) |
+
+### 도메인 특화 변형 (4개)
+
+| 에이전트 | 특징 |
+|---|---|
+| [`notion-writer.md`](../../agents/notion-writer.md) | **외부 서비스 위치 정의 패턴 표준 예시** (§ 3 참조) + 자기 캐시 보유 — 외부 시스템 연동 에이전트 작성 시 참고 |
+| [`deploy-prod.md`](../../agents/deploy-prod.md) | 자기 캐시 없음 + 외부 진실 원천(deploy.md) 기록 패턴 — 빌드/릴리즈/배포 관련 에이전트 작성 시 참고 |
+| [`hotfix-close.md`](../../agents/hotfix-close.md) | sprint-close 변형 (핫픽스 특화 — 자기 캐시 없음, 경량 리뷰) — 마무리/검증 에이전트 작성 시 참고 |
+| [`project-init.md`](../../agents/project-init.md) | 부트스트랩 변형 (CLAUDE.md/rules/tech 자동 생성, 다른 에이전트의 진입점) — 초기 세팅/스캐폴딩 에이전트 작성 시 참고 |
 
 ---
 
