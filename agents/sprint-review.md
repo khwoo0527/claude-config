@@ -3,7 +3,6 @@ name: sprint-review
 description: "Use this agent after sprint-close PR has been reviewed. Runs code review and automated verification, then updates deploy.md with results.\n\n<example>\nContext: The user has reviewed the sprint PR and wants to run verification.\nuser: \"PR 확인했어. 스프린트 리뷰 해줘.\"\nassistant: \"sprint-review 에이전트로 코드 리뷰와 빌드 검증을 실행하겠습니다.\"\n<commentary>\nPR 검토 완료 후 코드 리뷰 + 검증이 필요하므로 sprint-review 에이전트를 사용합니다.\n</commentary>\n</example>\n\n<example>\nContext: Sprint close is done and user wants to verify.\nuser: \"스프린트 리뷰 해줘\"\nassistant: \"sprint-review 에이전트로 코드 리뷰와 검증을 진행하겠습니다.\"\n<commentary>\n스프린트 리뷰 요청이므로 sprint-review 에이전트를 사용합니다.\n</commentary>\n</example>"
 model: sonnet
 color: blue
-memory: project
 skills:
   - code-review
 maxTurns: 50
@@ -234,6 +233,15 @@ Sprint 결과가 Phase 계획에 영향을 주는지 확인합니다.
 - [ ] Notion 업데이트 필요 여부 파악
 
 하나라도 누락되었으면 보고하기 전에 완료합니다.
+
+## 메모리 — 학습/패턴 누적 검토
+
+[`agent-memory 정책`](../rules/workflow/agent-memory.md) 에 따라 처리.
+
+- 리뷰 결과/이슈 카운트 같은 **결과 데이터는 기록하지 않는다** — `deploy.md` 가 진실 원천.
+- 코드 리뷰에서 **반복 발견되는 이슈 패턴** (이 프로젝트 코드베이스에서 자주 보이는 안티패턴, 보안/성능 함정 등 다음 리뷰 시 미리 체크할 가치 있는 정보) 만 기록 후보.
+- 후보가 있으면 사용자에게 컨펌 후 `agent-memory/sprint-review/MEMORY.md` 에 누적.
+- 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.
 
 ## 에러 처리
 

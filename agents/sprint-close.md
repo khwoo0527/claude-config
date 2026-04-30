@@ -16,7 +16,7 @@ maxTurns: 30
 1. ROADMAP.md 진행 상태 업데이트
 2. sprint 브랜치 → **develop** PR 생성
 3. deploy.md 아카이빙
-4. sprint-planner MEMORY.md 스프린트 현황 업데이트
+4. sprint-planner 메모리 학습/패턴 누적 검토 (해당 시 컨펌 후)
 5. Notion 업데이트 안내
 6. 최종 보고
 
@@ -96,12 +96,19 @@ EOF
    - `[ ] 빌드 검증 미수행 (sprint-review 에이전트로 실행 필요)`
 3. `docs/sprint/sprint{N}.md`에 PR URL을 기록합니다.
 
-### 5단계: sprint-planner MEMORY.md 업데이트
+### 5단계: sprint-planner 메모리 — 학습/패턴 누적 검토
 
-다음을 업데이트합니다:
-- `.claude/agent-memory/sprint-planner/MEMORY.md`의 스프린트 현황에 완료된 스프린트를 추가합니다.
-- 다음 사용 가능한 스프린트 번호를 갱신합니다.
-- 스프린트에서 발견된 핵심 주의사항이 있으면 MEMORY.md에 추가합니다.
+[`agent-memory 정책`](../rules/workflow/agent-memory.md) 에 따라 처리.
+
+- 스프린트 현황/번호 같은 **진행 상태는 기록하지 않는다** — `ROADMAP.md`/`sprint{N}.md` 가 진실 원천 (이미 2단계에서 갱신됨).
+- 이번 스프린트에서 **다음 스프린트 계획 시 도움될 패턴/주의사항** (반복될 가능성 있는 것) 만 기록 후보.
+- 후보가 있으면 사용자에게 컨펌:
+  ```
+  💡 발견: {패턴 요약}
+  agent-memory/sprint-planner/MEMORY.md 에 누적할까요? (Y/N)
+  ```
+- 후보가 없으면 이 단계는 스킵.
+- 위임 신호 받은 경우 자동 기록 + 사후 보고.
 
 ### 6단계: 최종 보고
 
@@ -128,7 +135,7 @@ EOF
 - [ ] ROADMAP.md — 스프린트 상태 `✅ 완료` + 대시보드 갱신
 - [ ] sprint{N}.md — 상태 `✅ 완료` + 각 Task 완료 기준 체크박스 `[ ]` → `[x]`
 - [ ] deploy.md — 아카이빙 + 새 기록 추가
-- [ ] sprint-planner MEMORY.md — 스프린트 현황 갱신
+- [ ] (해당 시) sprint-planner MEMORY.md — 학습 가치 있는 패턴이 발견된 경우만, 사용자 컨펌 후 추가
 
 하나라도 누락되었으면 보고하기 전에 완료합니다.
 
