@@ -117,7 +117,7 @@ graph TD
 │       ├── design-catalog.md            디자인 추천 매트릭스
 │       └── {brand}.md                   브랜드별 디자인 시스템 (Google Stitch 형식)
 │
-├── 🤖 agents/                       자동화 에이전트 (8개)
+├── 🤖 agents/                       자동화 에이전트 (9개)
 │   ├── project-init.md                새 프로젝트 초기 설정
 │   ├── prd-to-roadmap.md              PRD → ROADMAP 변환
 │   ├── phase-planner.md               Phase 상세 계획
@@ -125,7 +125,8 @@ graph TD
 │   ├── sprint-close.md                Sprint 마무리 (PR + 문서)
 │   ├── sprint-review.md               코드 리뷰 + 검증
 │   ├── hotfix-close.md                Hotfix 마무리
-│   └── deploy-prod.md                 배포 준비
+│   ├── deploy-prod.md                 배포 준비
+│   └── notion-writer.md               Notion 페이지 작성/갱신 (외부 서비스 표준 예시)
 │
 ├── ⌨️ commands/                      사용자 실행 커맨드 (5개)
 │   ├── InitLoad.md                    /InitLoad — 세션 시작 시 메모리/세션 절차 일괄 로딩
@@ -230,6 +231,7 @@ graph TD
 | **sprint-review** | 2계층 코드 리뷰 + 빌드 검증 | PR 리뷰 시 |
 | **hotfix-close** | Hotfix PR + 경량 리뷰 + deploy.md 기록 | Hotfix 완료 |
 | **deploy-prod** | 릴리즈 빌드 + 배포 가이드 + 릴리즈 노트 | QA 통과 후 |
+| **notion-writer** | Notion 페이지 작성/갱신 (외부 서비스 위치 정의 패턴 표준 예시) | 문서 정리/Notion 업데이트 |
 
 ### 커맨드 (사용자 실행)
 
