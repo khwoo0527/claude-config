@@ -34,7 +34,7 @@ color: green
 | 위치 | 대상 | 판단 기준 |
 |------|------|----------|
 | `.claude/agent-memory/*/` | 각 에이전트의 project 관련 `.md` | 에이전트가 작업 중 생성한 프로젝트 상태 파일 — **삭제** |
-| `.claude/agent-memory/*/MEMORY.md` | 파일은 유지하되 내용은 **초기 상태로 리셋** | 학습/패턴 누적 기록 비우기 (이전 프로젝트의 패턴이 새 프로젝트에 섞이지 않도록) |
+| `.claude/agent-memory/*/MEMORY.md` | 파일은 유지하되 내용은 **초기 상태로 리셋** | 이 프로젝트 작업 컨텍스트 캐시 — 새 프로젝트에 섞이지 않도록 비움 |
 | `.claude/settings.local.json` | `permissions.allow` 배열 | 이전 프로젝트에서 허용한 명령어 이력 — **비우기** (`[]`로 초기화) |
 | 프로젝트 루트 | 이전 `CLAUDE.md`, `ROADMAP.md`, `deploy.md` 존재 여부 | 사용자에게 알리고 어떻게 처리할지 확인 |
 
@@ -52,7 +52,7 @@ color: green
 
 #### 정리 순서
 1. `.claude/agent-memory/*/`에서 프로젝트 종속 `.md` 파일 삭제 (`MEMORY.md` 외 파일이 있는 경우).
-2. 각 `.claude/agent-memory/*/MEMORY.md` 의 누적된 학습/패턴 항목을 모두 비우고 초기 상태(헤더만)로 리셋.
+2. 각 `.claude/agent-memory/*/MEMORY.md` 의 캐시된 작업 컨텍스트를 모두 비우고 초기 상태(헤더만)로 리셋.
 3. `.claude/settings.local.json`의 `allow` 배열 확인 및 정리.
 4. 프로젝트 루트에 이전 프로젝트의 `CLAUDE.md`, `ROADMAP.md`, `deploy.md` 가 있으면 사용자에게 알리고 처리 방향 확인.
 5. 정리 완료 후 다음 단계(인터뷰)로 진행.

@@ -169,11 +169,15 @@ color: blue
 - 언어: 한국어
 - CLAUDE.md의 코드 컨벤션 규칙 준수
 
-## 메모리 — 학습/패턴 누적 검토
+## 발견된 정보 분기 기록
 
-[`agent-memory 정책`](../rules/workflow/agent-memory.md) 에 따라 처리.
+[`agent-memory 정책`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 에 따라 처리.
 
-- ROADMAP 구조/Phase 분할 같은 **진행 상태는 기록하지 않는다** — `ROADMAP.md` 가 진실 원천.
-- PRD 분석 중 발견한 **이 프로젝트만의 패턴** (요구사항 도출 함정, 우선순위 판단 기준 등 다음 ROADMAP 갱신 시 도움될 정보) 만 기록 후보.
-- 후보가 있으면 사용자에게 컨펌 후 `agent-memory/prd-to-roadmap/MEMORY.md` 에 누적.
-- 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.
+PRD 분석 중 발견한 정보 분기 판단:
+
+1. **다른 프로젝트에도 통하는 PRD 작성/요구사항 도출 노하우** → `rules/workflow/prd-guide.md` 보강 (사용자 컨펌 후)
+2. **이 프로젝트의 비즈니스 컨텍스트/요구사항 이해 메모** (다음 ROADMAP 갱신 시 빠른 컨텍스트 복원용) → `agent-memory/prd-to-roadmap/MEMORY.md` 에 캐시
+3. **공식 진행 상태** (ROADMAP 구조/Phase 분할) → `ROADMAP.md` 가 진실 원천 (캐시 X)
+4. **사용자 작업 스타일** → `memory/feedback_*.md`
+
+후보가 있으면 사용자에게 컨펌 (위치+내용 명시). 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.

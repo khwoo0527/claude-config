@@ -291,14 +291,18 @@ Task별 `skill:` 헤더를 작성할 때 **판단 플로우차트**를 위에서
    (병렬 실행 시 → "Phase 2를 팀으로 실행해줘")
 ```
 
-## 메모리 — 학습/패턴 누적 검토
+## 발견된 정보 분기 기록
 
-[`agent-memory 정책`](../rules/workflow/agent-memory.md) 에 따라 처리.
+[`agent-memory 정책`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md) 에 따라 처리.
 
-- 다음 Sprint 번호/현황 같은 **진행 상태는 기록하지 않는다** — `ROADMAP.md` 가 진실 원천. 시작 시 `ROADMAP.md` 를 읽어 다음 번호 도출.
-- 코드베이스 분석/Task 설계 중 발견한 **이 프로젝트의 구조적 함정/패턴** (다음 Sprint 계획 시 재발할 가능성 있는 것) 만 기록 후보.
-- 후보가 있으면 사용자에게 컨펌 후 `agent-memory/sprint-planner/MEMORY.md` 에 누적.
-- 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.
+코드베이스 분석/Task 설계 중 발견한 정보 분기 판단:
+
+1. **다른 프로젝트에도 통하는 기술 노하우** (예: 기술 스택 함정/안티패턴) → `rules/tech/{tech}.md` 보강 (사용자 컨펌 후)
+2. **이 프로젝트의 코드베이스 컨텍스트** (예: 모듈/스키마 구조, 인프라 메모) → `agent-memory/sprint-planner/MEMORY.md` 에 캐시
+3. **공식 진행 상태** (Sprint 번호/현황) → `ROADMAP.md` 가 진실 원천. 시작 시 `ROADMAP.md` 를 읽어 다음 번호 도출 (캐시 X)
+4. **사용자 작업 스타일** → `memory/feedback_*.md`
+
+후보가 있으면 사용자에게 컨펌 (위치+내용 명시). 후보 없으면 스킵. 위임 신호 받은 경우 자동 기록 + 사후 보고.
 
 ## 에러 처리
 
