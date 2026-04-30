@@ -133,7 +133,8 @@ graph TD
 │   ├── sprint-dev.md                  /sprint-dev {N} — sprint{N}.md 기반 Task 구현
 │   ├── design-review.md               /design-review — DESIGN.md 풀 파워 검증
 │   ├── UpdateReadme.md                /UpdateReadme — README 동기화
-│   └── SyncClaudeConfig.md            /SyncClaudeConfig — claude-config 양방향 동기화
+│   ├── SyncClaudeConfig.md            /SyncClaudeConfig — claude-config 양방향 동기화
+│   └── ReviewClaudeConfig.md          /ReviewClaudeConfig — .claude 폴더 전체 검토 (4축 점검)
 │
 ├── 🧠 memory/                       사용자 선호 (범용, 프로젝트 간 재사용)
 │   ├── MEMORY.md                      메모리 인덱스
@@ -242,6 +243,7 @@ graph TD
 | `/design-review` | DESIGN.md 풀 파워 검증 (브랜드 카탈로그 비교) |
 | `/UpdateReadme` | README 동기화 (변경 사항 일괄 반영) |
 | `/SyncClaudeConfig` | claude-config 마스터 ↔ 다른 프로젝트 양방향 동기화 |
+| `/ReviewClaudeConfig` | `.claude/` 폴더 전체 검토 (정책 vs 본문 / SSOT / 페이퍼워크 / 진입 경로 4축 점검) |
 
 ---
 

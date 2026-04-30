@@ -223,3 +223,4 @@ paths:
 - [`tech-knowledge.md`](tech-knowledge.md) — rules/tech 누적 정책
 - [`session-init.md`](session-init.md) — 세션 시작 시 컨텍스트 로딩
 - [`/README.md`](../../README.md) — 폴더 트리 스냅샷
+- [`/commands/ReviewClaudeConfig.md`](../../commands/ReviewClaudeConfig.md) — `.claude/` 폴더 전체 검토 커맨드 (사용자 명시 호출형 — "검토해줘", "전체 점검" 등)

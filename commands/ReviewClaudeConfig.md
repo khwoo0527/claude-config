@@ -1,0 +1,452 @@
+`.claude/` 범용화 폴더 전체를 검토 + 모순 점검 + 페이퍼워크 점검 + 진입 경로 점검하고, 발견 사항을 객관적으로 보고하는 커맨드.
+
+> **왜 필요한가**: `.claude/` 는 시간이 지나면서 정책-본문 모순, 페이퍼워크 누적, 진입 경로 누락, 단일 진실 원천 분산 등이 자연스럽게 쌓인다.
+> 작업 중 우연히 발견하면 표면 정정에 그치고, 발견 자체를 못 하면 같은 함정에 또 빠진다.
+> 이 커맨드는 **사용자 명시 호출** 시 한 번에 4축 객관 점검 + 보고 + 후속 단계 위임을 수행한다.
+
+> **다른 커맨드와 책임 분리**:
+> - **이 커맨드** = 검토 + 갱신 결정
+> - `/SyncClaudeConfig` = 검토/갱신 후 다른 프로젝트 전파
+> - `/UpdateReadme` = 검토/갱신 후 README 동기화
+> 검토 결과로 갱신이 결정되면 본 커맨드가 갱신 자체는 처리 (또는 사용자 결정 후 처리). 동기화/README 갱신은 후속 두 커맨드로 명시 위임.
+
+---
+
+## 인수
+
+`$ARGUMENTS`:
+- **없음** (`/ReviewClaudeConfig`) — 전체 점검 (기본, 권장)
+- **`--scope=agents`** — 에이전트 영역만 한정
+- **`--scope=rules`** — rules/workflow + rules/tech 한정
+- **`--scope=memory`** — memory/ 한정
+- **`--scope=meta`** — README + folder-structure + 진입 경로 한정
+
+> 일상적으로는 인수 없이 호출. scope 옵션은 부분 수정 후 빠른 확인 시.
+
+---
+
+## 핵심 원칙
+
+1. **정책 맹신 금지** — 정책 vs 본문 모순 발견 시 정책 자체도 검토 대상. "정책이 100% 맞다" 가정 X.
+2. **표면 정정 vs 본질 검토 두 번 묻기** — "한 줄 고치면 끝나는가?" 물은 후 "왜 이 모순이 생겼는가? 정책 자체에 문제 있는가?" 한 번 더. 본질 검토 후에야 정정 방식 결정.
+3. **객관적 품질 향상 우선** — 비용/시간 고려보다 객관적으로 더 나은 상태 우선. 단 페이퍼워크 누적은 항상 의심.
+4. **1차 검토 충실히** — 같은 영역을 5번 의견 바꾸면 신뢰 떨어짐. 처음 점검 시 깊고 넓게.
+5. **발견된 안티패턴은 반드시 재발 방지 룰화** — 결정 트리/체크리스트/안티패턴 섹션에 박기. 발견하고 끝내면 다음번에 또 빠짐.
+6. **사용자 결정 우선** — 객관 비교 + 추천 + 이유 제시 후 사용자 결정. 위임 신호 시만 자동 진행.
+
+---
+
+## 실행 절차
+
+### 1단계: 사전 컨텍스트 로딩
+
+작업 시작 전 다음 가이드를 Read 해서 검토 기준 확보:
+
+| 파일 | 목적 |
+|------|------|
+| [`rules/workflow/folder-structure.md`](../rules/workflow/folder-structure.md) | 폴더 정체성 + 새 문서 결정 트리 + 안티패턴 |
+| [`rules/workflow/agent-guide.md`](../rules/workflow/agent-guide.md) | 에이전트 작성 표준 + 패턴 분류 |
+| [`rules/workflow/rules-guide.md`](../rules/workflow/rules-guide.md) | rules/tech 작성 메타 가이드 + 4단계 품질 체크리스트 |
+| [`rules/workflow/agent-memory.md`](../rules/workflow/agent-memory.md) | agent-memory 정책 |
+| [`rules/workflow/tech-knowledge.md`](../rules/workflow/tech-knowledge.md) | rules/tech 누적 정책 |
+| [`rules/workflow/session-init.md`](../rules/workflow/session-init.md) | 작업 유형별 매트릭스 (진입 경로 검증 기준) |
+
+### 2단계: 4축 스캔 (병렬)
+
+#### 1축: 정책 vs 본문 일관성
+
+**점검 대상**:
+- `README.md` 카운트 / 카탈로그 / 트리 vs 실제 폴더 상태
+- 가이드 본문의 "N개 에이전트", "N개 커맨드" 같은 명시적 카운트 vs 실제
+- 가이드의 표/매트릭스 vs 실제 파일/폴더 (예: `agent-guide.md` 의 에이전트 표 vs `agents/*.md` 글롭)
+- frontmatter `description` / `name` / `model` 의 정확성
+- 폐지된 키 잔존 (예: `memory: project`)
+
+**스캔 방법**:
+```bash
+# 카운트 추출
+ls .claude/agents/*.md | wc -l
+ls .claude/commands/*.md | wc -l
+ls .claude/rules/tech/*.md | wc -l
+ls .claude/rules/workflow/*.md | wc -l
+
+# 가이드의 명시 카운트 grep
+grep -rn "([0-9]\+개)" .claude/README.md .claude/rules/workflow/
+
+# 폐지된 frontmatter 키
+grep -l "^memory: project" .claude/agents/*.md
+```
+
+**판정 기준**:
+- 카운트 ≠ 실제 → 즉시 수정 (또는 카운트 자체 제거 — 페이퍼워크 축소)
+- 표/카탈로그가 실제와 다름 → (a) 표 갱신 (b) 표를 패턴 분류로 재구성하여 갱신 부담 제거
+- 폐지 키 잔존 → 즉시 정리
+
+**이번 세션 발견 사례**:
+- `README.md` "agents/ (8개)" → 실제 9개 (notion-writer 누락)
+- `agent-guide.md` "5개 에이전트 통일 패턴" → 실제 9개 (4개 누락) — 카탈로그 표를 패턴 분류로 재구성하여 해결
+
+---
+
+#### 2축: 단일 진실 원천 (SSOT) 위반
+
+**점검 대상**:
+- 같은 정책이 여러 가이드에 분산되어 박힘 (참조 X, 본문 중복)
+- 외부 서비스 (Notion/Slack/GitHub) 위치 정의가 본문 여러 곳에 분산
+- 중복 절차 (예: 새 프로젝트 초기화가 `sprint-workflow.md` + `agents/project-init.md` 양쪽에)
+- 같은 노하우가 `agent-memory/` + `rules/tech/` 양쪽에 (rules/tech 가 진실 원천이어야)
+- README 폴더 트리와 `folder-structure.md` 매트릭스가 같은 정보 중복 — 본질이 다르면 OK, 같으면 단순화
+
+**스캔 방법**:
+```bash
+# 같은 키워드 여러 위치 점검
+grep -rln "핵심 키워드" .claude/
+
+# 외부 서비스 설정 위치 grep (중복 박힘 점검)
+grep -rln "Integration 토큰\|페이지 ID" .claude/
+```
+
+**판정 기준**:
+- 같은 정책 N곳 (N≥2) 박힘 → 1곳을 진실 원천으로 + 나머지는 짧은 참조
+- 외부 서비스 위치 → 본문 시작 1곳에 위치 정의 박스 (notion-writer 패턴)
+- 본질이 같은 카탈로그/표 N곳 → 통합 또는 일부 제거
+
+**이번 세션 발견 사례**:
+- `notion-writer.md` 옛 경로 (`rules/notion.md`) 7곳 분산 → 시작부 위치 정의 박스 1곳 + 본문 짧은 참조로 통합
+- `sprint-workflow.md` 새 프로젝트 초기화 섹션 → `project-init` 에이전트 위임 한 줄로 단순화
+
+---
+
+#### 3축: 페이퍼워크 누적
+
+**점검 대상**:
+- 가이드/문서에 카운트 숫자 (예: "(N개)", "에이전트 9개")
+- 카탈로그식 표 (개별 행이 항목 추가 시마다 늘어남)
+- 새 항목 추가 시 갱신해야 할 위치 N개 — N≥2 부담
+- 선언적 인덱스 (예: 파일 추가 시 인덱스에 한 줄 추가) — 자동화 가능한지 검토
+
+**스캔 방법**:
+```bash
+# 카운트 박힌 위치 검출
+grep -rn "([0-9]\+개\|N개)" .claude/
+
+# 명시적 카탈로그 표 (특정 패턴)
+grep -rn "^| \[" .claude/rules/workflow/
+```
+
+**판정 기준**:
+- 카운트 숫자 → 제거 (값 잃지 않음 — 가독성에 거의 영향 없음)
+- 개별 카탈로그 표 → 패턴 분류 표로 재구성 (`agent-guide.md` § 7 사례 참고)
+- 선언적 인덱스 → 글롭/자동화 가능한지 검토 (예: `memory/MEMORY.md` 는 `memory/*.md` 글롭으로 동적)
+
+**이번 세션 발견 사례**:
+- `README.md` "agents/ (9개)", "commands/ (5개)" 카운트 → 제거 (페이퍼워크 누적 사라짐)
+- `agent-guide.md` § 7 9개 에이전트 카탈로그 → 5개 패턴 분류 표 (자기 캐시 보유 / 자기 캐시 없음 / 분기 누적 변형 / 외부 시스템 연동 / 부트스트랩) → 새 에이전트 추가해도 표 갱신 X
+
+**페이퍼워크 최소화 황금률**:
+- "이 문서를 갱신해야 하는 트리거가 자주 발생하는가?" → Yes 면 의심
+- 본질 부담 vs 부속 부담 분리 — 본질만 유지
+
+---
+
+#### 4축: 진입 경로 누락 (frontmatter `paths` 함정)
+
+> **이번 세션 가장 큰 발견 — 다음번에도 가장 먼저 점검할 것.**
+
+**핵심 함정**:
+- `frontmatter paths` 는 **자동 로딩 메커니즘이 아니다** — 단순 메타데이터.
+- Claude Code 가 자동 로딩하는 건 `/CLAUDE.md` + `~/.claude/projects/{인코딩}/memory/MEMORY.md` 만.
+- 그 외 모든 문서는 누군가 **명시적으로 Read** 해야 함.
+- `paths` 만 박고 진입 경로 없는 가이드 = **페이퍼워크 문서** (작성해도 사용 안 됨).
+
+**점검 대상**:
+- `rules/workflow/*.md` 각각이 어디서 명시적 Read 되는지
+  - `session-init.md` 매트릭스에 작업 유형 매칭됨? → OK
+  - 다른 가이드/에이전트 본문에 명시적 참조 있음? → OK
+  - 어디서도 Read 안 됨? → ❌ **페이퍼워크 — 진입 경로 추가 필요**
+
+**스캔 방법**:
+```bash
+# 1) rules/workflow/* 각 파일 추출
+ls .claude/rules/workflow/*.md
+
+# 2) 각 파일이 다른 곳에서 명시 참조되는지
+for f in .claude/rules/workflow/*.md; do
+  base=$(basename "$f")
+  refs=$(grep -rln "$base" .claude/ --exclude-dir=.git | grep -v "$f" | wc -l)
+  echo "$base: 참조 $refs 곳"
+done
+```
+
+**판정 기준**:
+- 0 참조 → 페이퍼워크. `session-init.md` 매트릭스에 작업 유형 + 로딩 대상 추가
+- 1 이상 참조 → OK
+- 매트릭스에는 있는데 본문 참조 0 → OK (매트릭스 매칭이 진입 경로)
+
+**이번 세션 발견 사례**:
+- `rules-guide.md`, `tech-knowledge.md`, `agent-guide.md`, `folder-structure.md` 4개 모두 `paths` 만 박혀있고 진입 경로 없음 발견
+- 해결: `session-init.md` 매트릭스에 3행 추가 + 누락 문제 표에 3행 추가
+- 자기 보호: `folder-structure.md` § 2 결정 트리 3️⃣ 단계 + § 5 rules/workflow 체크리스트에 진입 경로 확보 룰 박음 → 다음 신설 가이드는 자동으로 진입 경로 챙김
+
+---
+
+### 3단계: 발견 사항 분류
+
+각 발견을 다음으로 분류:
+
+| 분류 | 기준 | 처리 |
+|---|---|---|
+| **즉시 수정 가능** | 명백한 누락/오타/카운트 오류, 본질 영향 X | 본 커맨드에서 자동 수정 (사용자 컨펌 1회 후) |
+| **사용자 의견 필요** | 정책 변경 / 구조 재설계 / 책임 분리 결정 / 옵션 다수 | 객관 비교 + 추천 + 이유 보고 후 사용자 결정 |
+| **자기 보호 룰화 필요** | 한 번 발견된 안티패턴 → 다음번 재발 방지 위해 가이드/체크리스트에 박을 가치 | 사용자 의견 받고 `folder-structure.md` 등에 룰 추가 |
+
+### 4단계: 객관 보고 (의견 흔들림 방지)
+
+보고 형식:
+```
+## 발견 사항 요약
+
+### A. 즉시 수정 가능 (N개)
+1. {위치} {간단 설명} — {수정 내용}
+...
+
+### B. 사용자 의견 필요 (N개)
+1. {위치} — {모순/이슈 본질}
+   - 옵션 X: ... (장점/단점)
+   - 옵션 Y: ...
+   - 추천: 옵션 X (이유)
+
+### C. 자기 보호 룰화 가치 (N개)
+1. {함정 본질} — {박을 위치 (folder-structure / agent-guide / ...)}
+```
+
+**의견 흔들림 방지 룰**:
+- 1차 보고 시 **본질 검토 충실히** — 표면 정정으로 보이는 것도 본질 한 번 더 확인
+- 같은 영역을 N번 다른 방식으로 제안 X — 추천 1개 + 대안 1~2개 한정
+- 사용자가 "다른 옵션은?" 물으면 그때 확장
+- 정책 vs 본문 모순 → 정책 자체도 검토 대상 (이번 세션 토큰 위치 사례)
+
+### 5단계: 사용자 결정 + 후속
+
+사용자 결정 후 후속 처리:
+
+| 결정 | 후속 |
+|---|---|
+| 즉시 수정 OK | 본 커맨드에서 처리 |
+| 갱신 결정 | 본 커맨드에서 처리 (큰 변경이면 단계별 게이트) |
+| 자기 보호 룰화 OK | `folder-structure.md` / `agent-guide.md` / `rules-guide.md` 등 적절한 가이드에 추가 |
+| 다른 프로젝트 동기화 필요 | `/SyncClaudeConfig` 위임 (또는 본 커맨드가 cp 직접) |
+| README 갱신 필요 | `/UpdateReadme` 위임 (또는 본 커맨드가 직접) |
+| commit/push | 사용자 게이트 — 자동 진행 X |
+
+> **commit/push 직전 게이트는 절대 생략 X** — 위임 신호 받았어도 push 직전엔 한 번 더 확인.
+
+---
+
+## 검토 시 자가 검증 룰 (의견 흔들림 방지)
+
+이번 세션에서 같은 영역에 대해 의견이 5번 바뀐 사례 있음 (PRD-TEMPLATE 만들었다 폐기, A2 단순 정정 → B 안 정책 보강, A3 표면 정정 → 12 섹션 재작성, B → Hybrid → Big Bang, rules-guide / agent-guide 위치 재결정). 다음번 방지를 위한 룰:
+
+### 룰 1: 표면 정정 vs 본질 검토 두 번 묻기
+
+발견 시 항상:
+1. **표면 묻기**: "한 줄 고치면 끝나는가?"
+2. **본질 묻기**: "이 모순/이슈가 왜 생겼는가? 정책 자체에 문제가 있는가? 책임 분리가 잘못됐는가?"
+
+**본질 검토 후에야** 정정 방식 결정. 본질 검토 누락하면 표면 정정 → 사용자 피드백 → 본질 재검토 → 정정 다시 하는 사이클 발생.
+
+### 룰 2: 옵션 제시 시 1~3개 한정
+
+- 추천 1개 + 대안 1~2개 (총 3개 이하)
+- 객관 비교 (장단점 + 본질 비용)
+- 추천 이유 명시
+- 사용자가 "다른 옵션 더?" 물으면 그때 확장
+- N≥4 옵션 던지기 = 1차 검토 부실 신호
+
+### 룰 3: 정책 vs 본질 우선순위
+
+- 정책이 우선이지만 100% 맹신 X
+- 정책 vs 본문 모순 → 정책 자체에 문제 가능성 검토 후 결정
+- 정책 변경이 본질에 더 맞으면 정책 보강 (이번 세션 토큰 위치 사례)
+
+### 룰 4: "비용 X" 신호 처리
+
+- 사용자가 "비용/시간 X" 명시 시 → 객관적 품질 향상 우선
+- 단 페이퍼워크 누적은 항상 의심 (비용 X 라도 페이퍼워크는 누적되면 운영 부담)
+
+### 룰 5: 위임 신호 처리
+
+- 사용자가 "권한 다 줄게", "알아서 진행", "묻지 말고" 명시 시 → 컨펌 생략 + 자동 진행 + 사후 보고
+- 단 **commit/push 직전 게이트는 유지** — 위임 신호로도 commit/push 자동 X
+
+---
+
+## 연쇄 영향 식별
+
+변경 결정 시 파급 범위 식별:
+
+### Step 1: 직접 영향 (변경 대상 자체)
+- 변경할 파일 리스트
+- 각 파일의 책임 변화
+
+### Step 2: 참조 영향 (다른 곳에서 변경 대상 참조)
+```bash
+# 변경 대상 파일명/심볼 grep
+grep -rln "변경대상.md\|변경대상키워드" .claude/
+
+# rules/workflow/ 변경 시 다른 가이드의 참조
+grep -rln "rules/workflow/{변경파일}" .claude/
+```
+
+### Step 3: 정책 영향 (변경이 다른 가이드의 정책에 영향?)
+- `rules/workflow/*` 변경 → 다른 가이드의 책임 분리 변화 가능
+- `agents/*` 변경 → `agent-guide.md` § 7 패턴 분류 영향 가능 (단 패턴 분류라 갱신 부담 X — 페이퍼워크 최소화의 효과)
+- `commands/*` 변경 → README 표 + 폴더 트리 영향
+
+### Step 4: 동기화 영향 (다른 프로젝트)
+- 4 위치: claude-config 마스터 / ReserveMate / CrewUp / toy/.claude
+- 다른 프로젝트 동기화 시 보존 자산 백업 필요한지 (예: `agent-memory/notion-writer/MEMORY.md` 의 페이지별 정보)
+- toy/.claude 는 git X — push 불필요
+
+### Step 5: 자기 보호 영향
+- 발견된 안티패턴이 가이드/체크리스트에 룰로 박혀야 재발 방지
+
+---
+
+## 검토 체크리스트 (전체 점검 시)
+
+### A. 정책 vs 본문 일관성
+- [ ] README 카운트가 실제 폴더 카운트와 일치 (또는 카운트 제거)
+- [ ] README 폴더 트리가 실제 파일 목록과 일치
+- [ ] README 에이전트 표 / 커맨드 표가 실제 파일과 일치
+- [ ] 가이드 본문의 명시 카운트 / 카탈로그가 실제와 일치
+- [ ] frontmatter `description` 정확성 (한국어 자연 호출 example 2~3개)
+- [ ] 폐지된 frontmatter 키 (`memory: project`) 잔존 X
+- [ ] 변경 이력의 날짜가 실제 변경과 일치
+
+### B. 단일 진실 원천 (SSOT)
+- [ ] 같은 정책이 여러 위치에 분산되어 박혀있지 않음
+- [ ] 외부 서비스 위치 정의가 1곳 (위치 정의 박스) + 본문 짧은 참조
+- [ ] 중복 절차 X (예: 새 프로젝트 초기화는 project-init 에이전트 1곳)
+- [ ] 같은 노하우가 `agent-memory` + `rules/tech` 양쪽에 X (rules/tech 가 진실 원천)
+- [ ] README 와 다른 가이드의 같은 정보 중복 검토 (본질이 다르면 OK)
+
+### C. 페이퍼워크 누적
+- [ ] 가이드/README 에 카운트 숫자 없음 (또는 본질적으로 필요한 경우만)
+- [ ] 카탈로그식 표는 패턴 분류 표로 재구성됨 (개별 행 추가 부담 X)
+- [ ] 새 항목 추가 시 갱신 위치 ≤ 2곳 (본질 부담만)
+- [ ] 선언적 인덱스 → 글롭/자동화 가능한지 검토됨
+
+### D. 진입 경로 (frontmatter `paths` 함정)
+- [ ] 모든 `rules/workflow/*.md` 가 `session-init.md` 매트릭스 매칭 또는 다른 가이드/에이전트 본문에서 명시 참조됨
+- [ ] `paths` 만 박혀있고 진입 경로 없는 가이드 0개
+- [ ] 새 가이드 신설 시 `folder-structure.md` 결정 트리 3️⃣ 단계 적용됨
+- [ ] 진입 경로 누락 시 발생 문제가 `session-init.md` "로딩 누락 시 발생 문제" 표에 기록됨
+
+### E. 자기 보호 메커니즘
+- [ ] 이번 검토에서 발견된 안티패턴이 적절한 가이드의 안티패턴 섹션 / 체크리스트에 박혔음
+- [ ] `folder-structure.md` § 7 변경 이력에 이번 검토 + 결정 사항 기록됨
+
+### F. 동기화 (4 위치)
+- [ ] claude-config 마스터 ↔ ReserveMate / CrewUp / toy/.claude diff -rq 검증됨
+- [ ] 의도된 차이만 있음 (예: ReserveMate 의 페이지별 정보 보존)
+- [ ] settings.local.json 4 위치 모두 보존됨 (절대 복사 X)
+
+### G. commit/push (사용자 게이트)
+- [ ] 변경 사항 객관 보고 완료
+- [ ] 사용자 결정 받음
+- [ ] 3 git repo (claude-config / ReserveMate / CrewUp) commit + push 절차 준비
+- [ ] toy/.claude 는 git X — 동기화만 (push 불필요)
+
+---
+
+## 안티패턴 (검토 시 발견 + 향후 회피)
+
+### 검토 자체의 안티패턴
+
+- ❌ **표면 정정으로 끝내기** — 모순 발견 시 한 줄 고치고 종료. 본질 검토 누락 → 다음에 또 발견됨
+- ❌ **정책 맹신** — "정책이 100% 맞다" 가정. 정책 자체에 문제 있을 수 있음
+- ❌ **의견 N≥4번 바꿈** — 1차 검토 부실. 본질 파악 안 한 채 옵션 던짐
+- ❌ **옵션 N≥4개 던지기** — 사용자 결정 부담만 늘림. 추천 1개 + 대안 1~2개로 충분
+- ❌ **자기 보호 룰화 누락** — 발견된 함정을 가이드/체크리스트에 안 박음 → 재발
+
+### 점검 대상 안티패턴
+
+- ❌ frontmatter `paths` 만 박힌 가이드 (자동 로딩 아님 함정)
+- ❌ 카운트 숫자 박기 ("(N개)" — 페이퍼워크 누적)
+- ❌ 카탈로그식 표 (개별 행 추가 부담)
+- ❌ 같은 정책 여러 위치 분산
+- ❌ 가이드를 `templates/` 에 (정체성 위반 — `rules/workflow/` 가 맞음)
+- ❌ 빈 골격을 `rules/workflow/` 에 (정체성 위반 — `templates/` 가 맞음)
+- ❌ `agent-memory/` 에 다른 프로젝트에 통할 일반 노하우 (rules/tech/ 로 이전)
+- ❌ `memory/` 에 이 프로젝트 종속 정보 (`/CLAUDE.md` 또는 `agent-memory/` 로)
+- ❌ 다중 파일 모델 (예: `agent-memory/{name}/2026-04-25-task.md`) — 단일 `MEMORY.md` 가 표준
+- ❌ 폐지된 frontmatter 키 (`memory: project`) 잔존
+- ❌ `agents/` 본문에 진입 절차 명시 (CLAUDE.md 자동 로딩과 중복)
+
+### 동기화 시 안티패턴
+
+- ❌ `settings.local.json` 함께 복사 (로컬 권한/토큰 — 절대 X)
+- ❌ 보존 자산 백업 없이 덮어쓰기 (예: ReserveMate 의 페이지별 정보 손실 위험)
+- ❌ toy/.claude 에 push 시도 (git 추적 X)
+- ❌ commit 메시지에 마스터 commit hash 누락 (추적성 떨어짐)
+
+---
+
+## 다음번 검토 시 더 수월하게 만드는 팁
+
+### 1. 검토 빈도
+
+- **트리거 시점**: 사용자가 명시 호출 (`/ReviewClaudeConfig` 또는 "검토해줘" 등)
+- **권장 빈도**: 큰 변경 (에이전트/커맨드/가이드 추가, 정책 재정의) 후 + 분기에 1회
+- **자동 진입 X**: 일상 작업과 무관 — 명시 호출 시만
+
+### 2. 사전 준비
+
+- 검토 시작 전 사용자에게 **위임 신호 확인**: "권한 다 OK?" — 받으면 자동 진행 + 사후 보고. 받지 않으면 단계별 게이트.
+- **scope 결정**: 부분 수정 후 빠른 확인이면 `--scope`. 전체 점검이면 인수 없음.
+
+### 3. 1차 검토 충실히
+
+- 4축 모두 동시 진행 (병렬)
+- 본질 검토 한 번 더
+- 발견 사항을 즉시/사용자 의견/룰화 3개로 분류
+- 보고 형식 표준 (위 4단계 참조)
+
+### 4. 자기 보호 누적
+
+매 검토 후:
+- 발견된 새 안티패턴 → `folder-structure.md` § 6 안티패턴 또는 § 5 체크리스트에 추가
+- 발견된 새 함정 → `folder-structure.md` § 7 변경 이력 추가
+- 발견된 새 베스트 프랙티스 → 적절한 가이드의 룰 섹션에 추가
+
+이렇게 하면 다음번 검토는 본 커맨드의 안티패턴 섹션 + folder-structure 의 체크리스트가 더 풍부해져 더 수월해진다.
+
+### 5. 동기화 + commit/push
+
+- 검토/갱신 끝 → `/SyncClaudeConfig` 또는 cp 직접
+- README 영향 → `/UpdateReadme` 또는 직접
+- commit/push 직전 사용자 게이트 (위임 신호로도 X)
+- 3 git repo (claude-config / ReserveMate / CrewUp) 각각 commit + push
+- toy/.claude 는 동기화만
+
+---
+
+## 변경 이력
+
+### 2026-04-30: 신설
+- 이번 세션 (4 위치 동기화 + rules/workflow 정비 + 자기 보호 메커니즘) 노하우 통합
+- 4축 점검 (정책 vs 본문 / SSOT / 페이퍼워크 / 진입 경로) 표준화
+- 의견 흔들림 방지 룰 5개 박음
+- 다음번 더 수월하게 만드는 팁 5개 정리
+
+---
+
+## 관련 문서
+
+- [`commands/SyncClaudeConfig.md`](SyncClaudeConfig.md) — 검토/갱신 후 다른 프로젝트로 동기화
+- [`commands/UpdateReadme.md`](UpdateReadme.md) — 검토/갱신 후 README 동기화
+- [`rules/workflow/folder-structure.md`](../rules/workflow/folder-structure.md) — 폴더 정체성 + 결정 트리 + 자기 보호 룰
+- [`rules/workflow/agent-guide.md`](../rules/workflow/agent-guide.md) — 에이전트 작성 표준
+- [`rules/workflow/rules-guide.md`](../rules/workflow/rules-guide.md) — rules/tech 작성 메타 가이드
+- [`rules/workflow/session-init.md`](../rules/workflow/session-init.md) — 작업 유형별 매트릭스 (진입 경로 검증 기준)
