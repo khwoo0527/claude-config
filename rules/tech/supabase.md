@@ -537,12 +537,17 @@ function useRealtimeTasks(teamId: string) {
 # 마이그레이션 생성
 npx supabase migration new create_teams
 
-# 마이그레이션 적용 (로컬)
+# 마이그레이션 적용 (로컬 — 도커 사용 시)
 npx supabase db reset
+
+# 마이그레이션 적용 (Cloud — 운영 환경 또는 도커 미사용 시)
+npx supabase db push
 
 # 마이그레이션 상태 확인
 npx supabase migration list
 ```
+
+> **로컬 vs Cloud 분기**: `db reset` 은 로컬 도커 컨테이너 초기화 + 마이그레이션 + 시드 적용. `db push` 는 로컬 마이그레이션 파일을 Cloud 에 적용 (도커 불필요). 회사 환경 등 도커 사용 불가 시 또는 Cloud 직접 운영 시 `db push` 사용.
 
 ```sql
 -- supabase/migrations/20260326000000_create_teams.sql
