@@ -185,9 +185,8 @@ paths:
 - ❌ 가이드 본문이 다른 가이드와 중복 (참조로 대체)
 - ❌ `agents/` 본문에 진입 절차 명시 (CLAUDE.md 자동 로딩과 중복)
 
-### 자동 로딩 메커니즘 무시
-- ❌ frontmatter `paths` 누락 → 자동 로딩 영역 모호
-- ❌ `MEMORY.md` 인덱스에 등록 안 함 → `/InitLoad` 누락
+### 진입 경로 / 메타데이터 위반
+- ❌ `MEMORY.md` 인덱스 (글롭) 결과와 실제 파일 수 불일치 → `/InitLoad` 누락
 - ❌ 폐지된 frontmatter 키 사용 (예: `memory: project`)
 - ❌ **frontmatter `paths` 만 명시하고 진입 경로 등록 안 함 → 페이퍼워크 문서**
   - `paths` 는 자동 로딩이 아님 (단순 메타데이터)
@@ -212,6 +211,31 @@ paths:
 - **이후**: 결정 트리에 "3️⃣ 진입 경로 확보" 단계 추가 + rules/workflow/ 체크리스트에 매트릭스 등록 강제
 - **이유**: `frontmatter paths` 는 자동 로딩 아님 (단순 메타데이터). 신설 4개 가이드(`rules-guide`, `tech-knowledge`, `agent-guide`, `folder-structure`) 가 진입 경로 없이 떠 있는 문제 발견 → `session-init.md` 매트릭스 3행 추가로 해결 + 같은 실수 재발 방지를 위해 본 가이드에 자기 보호 룰 박음
 - **연쇄**: `session-init.md` 매트릭스 3행 + 누락 문제 표 3행 추가
+
+### 2026-04-30: 자율 검토 사이클 iteration 1
+- **자기 발견**: § 6 안티패턴 첫 항목 "frontmatter paths 누락 → 자동 로딩 영역 모호" 자기 모순 (paths 는 자동 로딩 아님이 본 정책) → 옛 인식 잔재 항목 제거
+- **자기 발견**: tech-knowledge.md § 6 표의 `clubs` 테이블 — 프로젝트 종속 용어. rules-guide § 2-2 "프로젝트 종속 검증" 룰 위반 → `teams` 로 정정
+- **자기 발견**: session-init.md 매트릭스 "검토 작업" 행 누락 → 추가 (`/ReviewClaudeConfig` 자연어 호출 매칭)
+- **Sub-agent 발견**: README mermaid 다이어그램에 0단계 (`project-init`) 누락 vs 표는 0~7 명시 → mermaid 에 Z 노드 추가
+- **Sub-agent 발견**: notion-writer.md frontmatter `color` 누락 (다른 8개는 모두 명시) → `color: purple` 추가
+- **Sub-agent 발견 → 룰화**: README mermaid ↔ 표 정합 검증을 `/UpdateReadme` 2단계에 항목 추가 → 다음 갱신 시 자동 점검
+
+### 2026-05-06: 자율 검토 사이클 iteration 2 + 권한 확장
+- **인프라 변경**: settings.local.json 에 read-only Bash 권한 38개 추가 (`Bash(echo *)`, `Bash(for *)`, `Bash(grep *)` 등) — 자율 루프 진행 위해. git commit/push 는 별도 룰로 절대 X 유지
+- **Sub-agent 발견**: 9개 에이전트 중 3개 (`hotfix-close`, `deploy-prod`, `project-init`) 가 "발견된 정보 분기 기록" 섹션 누락 → 박스 1줄 형태로 추가 (자기 캐시 없음 패턴)
+- **Sub-agent 발견**: `notion-writer` 의 § 1 "디자인 철학" 이 핵심 원칙 도메인 변형 → agent-guide § 2 표준에 "도메인 변형 명칭 허용" 명시 (필수 섹션 표 + § 7 패턴별 변형 박스)
+- **본질 통합**: agent-guide § 2 를 "필수 섹션" + "선택 섹션" + "본문 골격" 3 영역으로 재구성 — 도메인 변형 허용 명시로 일관성 + 변형 모두 수용
+
+### 2026-05-06: 자율 루프 사후 검증 + 9건 통합 정정
+- **자기 발견**: `prd-to-roadmap.md` 에 `## 에러 처리` 섹션 누락 (agent-guide § 2 필수 위반) → 5건 에러 케이스 추가
+- **자기 발견**: `settings.local.json` 셸 키워드 5개 (`do/done/then/fi/if`) 불필요 (페이퍼워크) → 제거
+- **Sub-agent 발견 (자기 매몰)**: 본 변경 이력의 "9개 중 4개" 카운트 모순 (실제 3개 나열) → "3개" 로 정정. 같은 안티패턴이 1축 점검 매몰의 사례 → `ReviewClaudeConfig § 1축` 점검 대상에 "변경 이력 본문 내 카운트 정합" 항목 추가 (자기 보호 룰화)
+- **Sub-agent 발견**: `session-init.md:43` "6 사전 컨텍스트" → "6개 사전 컨텍스트" (한국어 정정)
+- **Sub-agent 발견 (위험)**: 권한 38개 중 11개 (`xargs/awk/find/test/true/false/do/done/then/fi/if`) 가 destructive 합성 우회 가능 (예: `find -delete`, `awk system()`, `xargs rm`, `if X; then rm Y; fi`) → 11개 제거. 27개 → 26개 read-only 한정
+- **Sub-agent 발견**: `project-init.md` 분기 박스 "사용자 작업 스타일은 memory/feedback_*.md 추가 검토" 주체 모호 → "사용자 스타일 발견 시만 별도 컨펌 후 제안" 으로 명확화 (부트스트랩 패턴 빈도 낮음 명시)
+- **Sub-agent 발견**: `notion-writer.md` `color: purple` 의미 정책 부재 → agent-guide § 1 frontmatter 표준에 "color 는 단순 시각 구분 — 의미 정책 X" 명시 박스 추가
+- **자기 발견**: `folder-structure § 6` "자동 로딩 메커니즘 무시" 섹션 제목이 paths 정책과 부분 모순 → "진입 경로 / 메타데이터 위반" 으로 정정
+- **메타 학습**: 자기 단독 검토 시 발견 5건, sub-agent 호출 시 추가 5건 — 매번 자기 매몰 안티패턴 입증. ReviewClaudeConfig § 핵심 원칙 1번 (병행 필수) 의 가치 재확인.
 
 ---
 

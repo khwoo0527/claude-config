@@ -81,7 +81,7 @@ paths:
 | 발견 정보 | 다른 프로젝트에도 통하나? | 위치 |
 |---|:-:|---|
 | Supabase trigger 중복 정의 함정 | ✅ Yes | `rules/tech/supabase.md` |
-| 이 프로젝트의 `clubs` 테이블 스키마 | ❌ No | `agent-memory` 또는 `CLAUDE.md` |
+| 이 프로젝트의 `teams` 테이블 스키마 | ❌ No | `agent-memory` 또는 `CLAUDE.md` |
 | 사용자가 한꺼번에 작업 싫어함 | (사용자 스타일) | `memory/feedback_work_style.md` |
 | Sprint 3 다음 진입 | (진행 상태) | `ROADMAP.md` |
 

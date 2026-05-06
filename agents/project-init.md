@@ -217,6 +217,8 @@ UI가 있다면 다음 절차를 진행합니다:
 
 > 이 README.md는 `.claude/README.md`(프레임워크 가이드)와 다른 문서다. 혼동 주의.
 
+> **발견된 정보 분기 기록**: 자기 캐시 없음 — 부트스트랩 작업 중 발견한 기술 스택 노하우는 `rules/tech/{tech}.md` 보강 (4단계에서 생성됨). 부트스트랩 패턴 특성상 사용자 작업 스타일 캐치 빈도는 낮으므로 사용자 스타일 발견 시만 별도 컨펌 후 `memory/feedback_*.md` 제안. 분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md). 위임 신호 시 자동 + 사후 보고.
+
 ### 8단계: 다음 단계 안내
 
 모든 설정이 완료되면 사용자에게 다음 워크플로우를 안내합니다:

@@ -148,6 +148,8 @@ PR: {PR URL}
   - {기타 수동 검증 항목}
 ```
 
+> **발견된 정보 분기 기록**: 자기 캐시 없음 — 핫픽스 작업 중 발견한 기술 노하우는 `rules/tech/{tech}.md` 보강 (다른 프로젝트에도 통하면), 이 프로젝트 코드베이스 컨텍스트는 `agent-memory/sprint-planner/MEMORY.md` 에 기록 (다음 Sprint 계획 시 활용). 분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md). 위임 신호 시 자동 + 사후 보고.
+
 ### 6단계: 최종 보고
 
 사용자에게 다음을 보고합니다:

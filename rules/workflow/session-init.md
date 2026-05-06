@@ -40,6 +40,7 @@
 | **rules 작성/수정** (`rules/tech/*` 또는 `rules/workflow/*`) | `rules-guide.md` + `tech-knowledge.md` | 수정 대상이 기존 파일이면 해당 파일 |
 | **에이전트 작성/수정** (`agents/*`) | `agent-guide.md` + `agent-memory.md` | 수정 대상이 기존 에이전트면 해당 파일 |
 | **.claude 폴더 구조 변경** (새 문서/폴더 추가, 이동, 정리) | `folder-structure.md` | 작업 종류에 따라 `rules-guide.md` / `agent-guide.md` 등 |
+| **.claude 검토/감사** ("검토해줘", "전체 점검", `/ReviewClaudeConfig`) | `commands/ReviewClaudeConfig.md` | 커맨드 본문 § 1단계에서 6개 사전 컨텍스트 가이드 Read 명시 |
 
 > **메모리 로딩은 항상 1번 단계로 선행**. 자세한 메모리 로딩 가이드는 [MEMORY.md](../../memory/MEMORY.md) 참조.
 

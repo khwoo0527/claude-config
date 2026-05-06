@@ -88,6 +88,7 @@
 - 가이드의 표/매트릭스 vs 실제 파일/폴더 (예: `agent-guide.md` 의 에이전트 표 vs `agents/*.md` 글롭)
 - frontmatter `description` / `name` / `model` 의 정확성
 - 폐지된 키 잔존 (예: `memory: project`)
+- **변경 이력 본문 내 카운트 정합** — `folder-structure.md § 7` 등 변경 이력 항목에 "N개 발견" 식 카운트 박혔을 때 실제 나열 항목 수와 일치 여부 (자기 매몰 사례: 2026-05-06 iteration 2 변경 이력에 "9개 중 4개" 박았으나 실제 3개 나열)
 
 **스캔 방법**:
 ```bash

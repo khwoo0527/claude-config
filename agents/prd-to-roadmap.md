@@ -178,3 +178,11 @@ color: blue
 - 주요 발견 영역: 비즈니스 컨텍스트, 요구사항 이해 메모, 우선순위 판단 근거
 - 분기 1 변형: PRD 작성/요구사항 도출 노하우는 `rules/tech/` 가 아닌 [`rules/workflow/prd-guide.md`](../rules/workflow/prd-guide.md) 로 누적
 - 관련 진실 원천: `docs/prd.md`, `ROADMAP.md` (공식 진행 상태는 캐시 X)
+
+## 에러 처리
+
+- **PRD 문서 없음** (`docs/prd.md` 미존재): 사용자에게 PRD 작성을 먼저 요청합니다 ([`prd-guide.md`](../rules/workflow/prd-guide.md) 참조). 구두로 설명받은 경우 PRD 가이드 기준에 맞춰 정리한 뒤 진행합니다.
+- **요구사항이 너무 모호한 경우**: 인터뷰 모드로 전환하여 비즈니스 목적, 우선순위, 제약 사항을 사용자에게 단계별로 질문합니다. 추측으로 ROADMAP 생성 금지.
+- **기존 ROADMAP.md 가 이미 존재**: 사용자에게 재생성 vs 부분 수정 의사를 확인합니다. 명시 동의 없이 덮어쓰기 금지 (백업: `ROADMAP.md.backup` 생성 후 진행).
+- **기술 스택이 CLAUDE.md 에 정의 안 됨**: `project-init` 에이전트 호출을 권장합니다 (CLAUDE.md + rules/tech 세팅 후 ROADMAP 작성).
+- **Phase 분할이 모호한 대규모 프로젝트**: Phase 분할 기준을 사용자에게 컨펌받고 진행 (예: MVP / Beta / GA, 또는 기능 영역별).

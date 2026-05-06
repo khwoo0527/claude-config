@@ -119,6 +119,8 @@ CLAUDE.md에 정의된 배포 절차가 있으면 그대로 따릅니다.
 - 릴리즈 시 버전 업데이트 필요 여부를 사용자에게 확인합니다.
 - 버전 형식은 프로젝트 컨벤션을 따릅니다 (SemVer, CalVer 등).
 
+> **발견된 정보 분기 기록**: 자기 캐시 없음 — 릴리즈/배포 작업 중 발견한 기술 노하우 (예: 빌드 환경 함정, 패키징 트릭) 는 `rules/tech/{tech}.md` 보강 (다른 프로젝트에도 통하면), 공식 진행 상태는 `deploy.md` 에 이미 기록됨 (3단계). 분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md). 위임 신호 시 자동 + 사후 보고.
+
 ### 6단계: 최종 보고
 
 사용자에게 다음을 보고합니다:
