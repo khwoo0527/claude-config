@@ -1,5 +1,32 @@
 {
   "permissions": {
-    "allow": []
+    "allow": [
+      "Bash(echo *)",
+      "Bash(ls *)",
+      "Bash(ls)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(diff *)",
+      "Bash(wc *)",
+      "Bash(for *)",
+      "Bash(while *)",
+      "Bash(basename *)",
+      "Bash(dirname *)",
+      "Bash(sed -n *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(cut *)",
+      "Bash(tr *)",
+      "Bash(realpath *)",
+      "Bash(file *)",
+      "Bash(stat *)",
+      "Bash(jq *)",
+      "Bash(pwd)",
+      "Bash(date *)",
+      "Bash(date)",
+      "Bash(printf *)"
+    ]
   }
 }
