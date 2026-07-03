@@ -44,7 +44,7 @@ cp -r {기존프로젝트}/.claude/ {새프로젝트}/.claude/
 | 🔄 | `agent-memory/**` | **초기화** — 이전 프로젝트 상태 리셋 |
 | 🔄 | `settings.local.json` | **확인** — 이전 권한/토큰 제거 |
 | ✅ | `rules/`, `agents/`, `commands/` | 유지 — 범용 |
-| ✅ | `memory/user_*.md`, `memory/feedback_*.md` | 유지 — 사용자 선호 |
+| ✅ | `rules/memory/user_*.md`, `rules/memory/feedback_*.md` | 유지 — 사용자 선호 |
 
 > **Tip**: Claude에게 "새 프로젝트 시작할 거야"라고 말하면 자동으로 정리를 제안합니다.
 
@@ -94,9 +94,14 @@ graph TD
 ├── ⚙️ settings.json                 Claude Code 권한 설정 (공유)
 ├── ⚙️ settings.local.json           로컬 전용 설정 (환경별, git 제외)
 │
-├── 📏 rules/                        규칙 라이브러리 (작업 시점 수동 로딩)
+├── 📏 rules/                        규칙 라이브러리 (Claude Code 자동 로딩 — paths 없으면 상시, 있으면 조건부)
+│   ├── memory/                        사용자 선호 (범용, 매 세션 자동 로딩)
+│   │   ├── MEMORY.md                    메모리 폴더 가이드
+│   │   ├── user_*.md                    사용자 프로필
+│   │   └── feedback_*.md                작업 방식 피드백
 │   ├── workflow/                      워크플로우 규칙 + 가이드/정책
 │   │   ├── session-init.md              세션 컨텍스트 로딩 규칙 + 작업 유형별 매트릭스
+│   │   ├── supervision.md               감독 레벨 L0~L3 (자율성 게이트 — 지시자 모드)
 │   │   ├── prd-guide.md                 PRD 작성 품질 가이드
 │   │   ├── sprint-workflow.md           스프린트/핫픽스 워크플로우
 │   │   ├── notion.md                    Notion 문서 작성 가이드
@@ -130,17 +135,18 @@ graph TD
 │   └── notion-writer.md               Notion 페이지 작성/갱신 (외부 서비스 표준 예시)
 │
 ├── ⌨️ commands/                      사용자 실행 커맨드
-│   ├── InitLoad.md                    /InitLoad — 세션 시작 시 메모리/세션 절차 일괄 로딩
+│   ├── drive.md                       /drive — 목표 한 줄 → 상태 진단 → 단계 자동 체이닝 (지시자 모드)
+│   ├── InitLoad.md                    /InitLoad — 로딩 상태 점검 (메모리는 자동 로딩됨)
 │   ├── sprint-dev.md                  /sprint-dev {N} — sprint{N}.md 기반 Task 구현
 │   ├── design-review.md               /design-review — DESIGN.md 풀 파워 검증
+│   ├── ScoreRules.md                  /ScoreRules — rules/tech 객관 채점 (기계 실측 + 독립 에이전트)
 │   ├── UpdateReadme.md                /UpdateReadme — README 동기화
 │   ├── SyncClaudeConfig.md            /SyncClaudeConfig — claude-config 양방향 동기화
 │   └── ReviewClaudeConfig.md          /ReviewClaudeConfig — .claude 폴더 전체 검토 (4축 점검)
 │
-├── 🧠 memory/                       사용자 선호 (범용, 프로젝트 간 재사용)
-│   ├── MEMORY.md                      메모리 인덱스
-│   ├── user_*.md                      사용자 프로필
-│   └── feedback_*.md                  작업 방식 피드백
+├── 🛠️ skills/                       자체 제작 스킬 (Skill 도구로 로드)
+│   ├── simplify/SKILL.md              커밋 전 코드 정리 (동작 보존)
+│   └── verification-before-completion/SKILL.md  완료 선언 전 실증 검증
 │
 └── 💾 agent-memory/                  에이전트 메모리 (프로젝트 종속)
     ├── notion-writer/MEMORY.md        ⚠️ 새 프로젝트 시 리셋
@@ -150,9 +156,9 @@ graph TD
     └── sprint-review/MEMORY.md
 ```
 
-> **`memory/` vs `agent-memory/`**
+> **`rules/memory/` vs `agent-memory/`**
 >
-> | | `memory/` | `agent-memory/` |
+> | | `rules/memory/` | `agent-memory/` |
 > |---|---|---|
 > | **성격** | 사용자 작업 스타일, 선호도 | 에이전트의 프로젝트 진행 기록 |
 > | **범위** | 프로젝트 무관 (범용) | 프로젝트 종속 |
@@ -174,7 +180,7 @@ graph TD
 ```
 
 1. **CLAUDE.md 읽기** → 기술 스택, 빌드 명령, 구조 파악
-2. **rules/ 로드** → 해당 기술 스택의 시니어 수준 규칙 확보
+2. **rules/ 자동 로딩** → 사용자 원칙(상시) + 해당 기술 규칙(paths 매칭 시 조건부) 확보
 3. **전문가로 동작** → 코드 리뷰, 빌드 검증, 품질 기준 모두 기술 특화
 
 ---
@@ -187,7 +193,8 @@ graph TD
 
 | 파일 | 용도 | 로딩 시점 |
 |------|------|----------|
-| [session-init.md](rules/workflow/session-init.md) | 세션 시작 시 컨텍스트 로딩 + 작업 유형별 매트릭스 | 매 세션 |
+| [session-init.md](rules/workflow/session-init.md) | 세션 시작 시 컨텍스트 로딩 + 작업 유형별 매트릭스 | 매 세션 (자동) |
+| [supervision.md](rules/workflow/supervision.md) | 감독 레벨 L0~L3 — 확인 단위/게이트 정책 | 매 세션 (자동) |
 | [sprint-workflow.md](rules/workflow/sprint-workflow.md) | 스프린트/핫픽스 프로세스 | Sprint 작업 시 |
 | [prd-guide.md](rules/workflow/prd-guide.md) | PRD 작성 품질 기준 | PRD 작성/검토 시 |
 | [notion.md](rules/workflow/notion.md) | Notion 문서 작성 가이드 | 문서 정리 시 |
@@ -199,14 +206,14 @@ graph TD
 
 ### 기술 전문 규칙 (제공됨)
 
-| 기술 스택 | 파일 | 점수 |
+| 기술 스택 | 파일 | 점수 (2026-07-03 실측 재평가) |
 |----------|------|:----:|
-| TypeScript | [typescript.md](rules/tech/typescript.md) | 72 |
-| React Native + Expo | [react-native.md](rules/tech/react-native.md) | 85 |
-| Supabase | [supabase.md](rules/tech/supabase.md) | 88 |
-| C# | [csharp.md](rules/tech/csharp.md) | 40 |
+| TypeScript | [typescript.md](rules/tech/typescript.md) | **76 (Level 3)** — 2026-07-03 전면 보강 + /ScoreRules 독립 채점 2회 |
+| React Native + Expo | [react-native.md](rules/tech/react-native.md) | **83 (Level 3 상위)** — 2026-07-03 전면 개편 (New Architecture/React Compiler/deprecated 청소) + /ScoreRules 독립 채점 |
+| Supabase | [supabase.md](rules/tech/supabase.md) | **75 (Level 3)** — 2026-07-03 최신화(신 API 키/Deno.serve/initplan) + /ScoreRules 독립 채점 3회 |
+| C# | [csharp.md](rules/tech/csharp.md) | **86 (Level 3 최상위 — L4 게이트 전 통과, 총점 4점 미달)** — 2026-07-03 .NET 10/C# 14 현대화 + /ScoreRules 독립 채점 2회 |
 
-> 점수는 [rules-guide.md](rules/workflow/rules-guide.md)의 4단계 품질 체크리스트 기준 (Level 1: 60 ~ Level 4: 95+)
+> 점수는 [rules-guide.md](rules/workflow/rules-guide.md)의 품질 평가 체계 기준 (Level 2: 60~74 배포 최소선 / Level 3: 75~89 권장 / Level 4: 90~100)
 > 프로젝트 진행하면서 점진적으로 개선됩니다.
 
 ### 새 기술 스택 추가
@@ -240,9 +247,11 @@ graph TD
 
 | 커맨드 | 용도 |
 |--------|------|
-| `/InitLoad` | 세션 시작 시 메모리(`.claude/memory/*`) + 세션 절차 일괄 로딩 |
+| `/drive {목표}` | 지시자 모드 진입점 — 상태 진단 → 필요한 단계(PRD→ROADMAP→Sprint→구현)를 감독 레벨 게이트로 자동 체이닝 |
+| `/InitLoad` | 컨텍스트 로딩 상태 점검 (메모리/세션 절차는 rules 자동 로딩 — 주입 의심 시만 사용) |
 | `/sprint-dev {N}` | sprint{N}.md를 읽고 Task별로 구현 실행 |
 | `/design-review` | DESIGN.md 풀 파워 검증 (브랜드 카탈로그 비교) |
+| `/ScoreRules {tech}` | rules/tech 객관 채점 — 기계 실측 + 독립 에이전트 + README 반영 (신규/대폭 수정 시 필수) |
 | `/UpdateReadme` | README 동기화 (변경 사항 일괄 반영) |
 | `/SyncClaudeConfig` | claude-config 마스터 ↔ 다른 프로젝트 양방향 동기화 |
 | `/ReviewClaudeConfig` | `.claude/` 폴더 전체 검토 (정책 vs 본문 / SSOT / 페이퍼워크 / 진입 경로 4축 점검) |

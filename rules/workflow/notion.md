@@ -1,12 +1,12 @@
 ---
 paths:
   - "**/notion*"
-  - "ROADMAP.md"
-  - "deploy.md"
-  - "docs/**"
 ---
 
 # Notion 문서 작성 규칙
+
+> **진입 경로**: 본 문서는 주로 session-init 매트릭스(문서 작성 작업)와 notion-writer 에이전트가 명시 Read 한다.
+> paths 는 노션 관련 파일 한정 — 구 글롭(ROADMAP/deploy/docs/**)은 스프린트 문서 작업마다 18KB 오로딩을 유발해 2026-07-03 제거.
 
 > 이 파일은 AI가 프로젝트 정보를 Notion에 정리할 때 따르는 **문서 작성 품질 가이드**입니다.
 > API 코드가 아닌, **어떻게 쓰면 보기 좋고 내용이 풍부한 Notion 문서가 되는지**에 집중합니다.

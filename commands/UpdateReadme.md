@@ -20,11 +20,12 @@
 |------|----------|-----------|
 | 에이전트 | `agents/*.md` 글롭 | 파일명 + frontmatter `description` 첫 문장 |
 | 커맨드 | `commands/*.md` 글롭 | 파일명 + 본문 첫 줄 (요약 설명) |
-| 기술 규칙 | `rules/tech/*.md` 글롭 | 파일명 + 자가 채점 점수 (있는 경우) |
+| 기술 규칙 | `rules/tech/*.md` 글롭 | 파일명 + `/ScoreRules` 객관 채점 점수 (있는 경우) |
 | 워크플로우 규칙 | `rules/workflow/*.md` 글롭 | 파일명 + 첫 헤더/요약 |
-| 메모리 | `memory/*.md` 글롭 | 카테고리별 prefix 카운트 (`user_*`, `feedback_*` 등) |
+| 메모리 | `rules/memory/*.md` 글롭 | 카테고리별 prefix 카운트 (`user_*`, `feedback_*` 등) |
 | 디자인 카탈로그 | `templates/designs/*.md` 글롭 | 파일 수 (브랜드 카운트) |
-| 템플릿 | `templates/*.md` 글롭 | 파일명 (rules-guide, CLAUDE-TEMPLATE 등) |
+| 템플릿 | `templates/*.md` 글롭 | 파일명 (CLAUDE-TEMPLATE 등) |
+| 스킬 | `skills/*/SKILL.md` 글롭 | 스킬명 + description 첫 문장 |
 
 ### 2단계: README 현재 상태 파싱
 
@@ -51,7 +52,7 @@
 🔴 불일치/누락:
 - 에이전트 표: README 9개, 실제 9개 — OK
 - 커맨드 표: README 1개, 실제 3개 — InitLoad, UpdateReadme 누락
-- 기술 규칙: README csharp 40점, 실제 자가 채점 결과 없음 — 점수 검증 필요
+- 기술 규칙: README csharp 40점, 실제 채점 결과 없음 — /ScoreRules 검증 필요
 - 폴더 구조 트리: memory 카운트 README 5개 / 실제 7개
 
 🟡 추가 검토 필요:
@@ -80,7 +81,7 @@
 - **호출 시점은 사용자 결정** — 평소 자동 동기화 없음, 큰 변경 누적 후 한 번 호출.
 - **항상 실측 기준** — README 가 정답이 아니라 폴더의 현재 상태가 정답. 차이가 있으면 README 를 폴더에 맞춤.
 - **외부 톤 보존** — 사용자가 다듬은 문장/마케팅 표현 함부로 다시 쓰지 않음. 카운트/리스트 같은 사실 정보만 갱신.
-- **점수 갱신은 신중** — 자가 채점 결과가 있을 때만 반영. 추측 금지.
+- **점수 갱신은 신중** — `/ScoreRules` 객관 채점 결과가 있을 때만 반영. 추측 금지.
 
 ## 주의사항
 

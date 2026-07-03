@@ -9,12 +9,15 @@
 
 ## 로딩 방식 (Loading Policy)
 
-**이 폴더의 모든 `.md` 파일을 글롭(`.claude/memory/*.md`)으로 일괄 Read.**
+**이 폴더는 `.claude/rules/` 하위이므로 Claude Code가 매 세션 자동 로딩한다** (`paths` frontmatter 없음 = 무조건 로딩).
 
-- `/InitLoad` 커맨드가 이 정책을 그대로 수행함 — 정책 변경 시 이 섹션만 수정하면 됨.
+- 수동 호출(`/InitLoad`) 불필요 — 세션 시작 시 시스템이 자동 주입.
 - 새 메모리 파일은 **이 폴더에 두기만 하면 자동 로딩** — 인덱스 갱신 불필요.
-- MEMORY.md 자신도 글롭에 포함됨 (가이드/추가 절차를 함께 인지).
-- 누락 방지: 글롭 결과 파일 수 == 실제 Read 한 파일 수 확인.
+- MEMORY.md 자신도 자동 로딩됨 (가이드/추가 절차를 함께 인지).
+- ⚠️ **`paths` frontmatter를 넣지 말 것** — 넣으면 조건부 로딩으로 바뀌어 세션 시작 시 누락됨.
+- 자동 로딩 예산: 상시 로딩 총량 관리는 `rules/workflow/session-init.md` 의 예산(~35KB)이 진실 원천 — 이 폴더가 그 예산을 압박하면 오래된/저빈도 항목 통합 검토.
+
+> 변경 이력: 2026-07-03 `.claude/memory/` → `.claude/rules/memory/` 이동 — Claude Code의 rules 네이티브 자동 로딩 도입에 따라 수동 로딩(글롭 일괄 Read) 정책 폐기.
 
 ---
 
@@ -38,18 +41,18 @@
 2. **파일명**: `{type}_{topic}.md` (예: `feedback_test_guide.md`)
 3. **frontmatter**: `name`, `description`, `type` 필수
 4. **본문**: 룰의 경우 **Why** + **How to apply** 포함
-5. 저장 — 다음 `/InitLoad` 부터 자동 로딩.
+5. 저장 — 다음 세션부터 자동 로딩 (별도 절차 불필요).
 
 ### 메모리 위치 결정 (요약)
 
 | 종류 | 위치 | 이유 |
 |------|------|------|
-| 범용 (모든 프로젝트 적용) | `.claude/memory/` (이 폴더) | git 에 포함, 다른 프로젝트로 복사됨 |
+| 범용 (모든 프로젝트 적용) | `.claude/rules/memory/` (이 폴더) | git 에 포함, 다른 프로젝트로 복사됨 |
 | 프로젝트 종속 | 프로젝트 별도 위치 | 이 프로젝트에서만 유효 |
 
 > 자세한 위치 결정 가이드는 [feedback_document_guide.md](feedback_document_guide.md) 참조.
 
-### .claude/memory/ 종속성 금지
+### .claude/rules/memory/ 종속성 금지
 - 범용 메모리에 **프로젝트 종속 내용 (프로젝트명, 특정 기능명 등) 절대 금지**.
 - 예시도 범용적으로 작성.
 - `.claude` 폴더는 다른 프로젝트에 그대로 복사 가능해야 함.

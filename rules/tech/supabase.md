@@ -1,10 +1,7 @@
 ---
 paths:
-  - "**/*.ts"
-  - "**/*.tsx"
   - "**/supabase/**"
-  - ".env"
-  - ".env.local"
+  - "**/*.sql"
 ---
 
 # Supabase 개발 규칙
@@ -19,7 +16,21 @@ paths:
 - **타입 안전성**: `supabase gen types`로 생성한 타입을 사용한다. 수동 타입 정의는 스키마와 불일치를 만든다.
 - **서버 사이드 검증**: 클라이언트는 신뢰하지 않는다. 중요한 비즈니스 로직은 RLS 정책 또는 Edge Function에서 검증한다.
 - **마이그레이션 기반 스키마 관리**: SQL을 직접 실행하지 않는다. 모든 스키마 변경은 마이그레이션 파일로 관리한다.
-- **최소 권한 원칙**: 클라이언트에는 `anon` 키만 노출한다. `service_role` 키는 절대 클라이언트에 포함하지 않는다.
+- **최소 권한 원칙**: 클라이언트에는 publishable 키만 노출한다. secret 키(구 service_role)는 절대 클라이언트에 포함하지 않는다.
+
+---
+
+## API 키 체계 (2025+ — 신규 프로젝트 기준)
+
+| 신 키 | 대체 대상 (legacy) | 용도 | 특징 |
+|------|-----------------|------|------|
+| `sb_publishable_...` | `anon` JWT 키 | 브라우저/모바일 등 공개 클라이언트 | RLS 적용 대상 |
+| `sb_secret_...` | `service_role` JWT 키 | 서버/Edge Function 전용 | **RLS 우회** — 복수 생성·개별 즉시 폐기 가능 |
+
+- **신규 프로젝트에는 legacy `anon`/`service_role` 키가 제공되지 않는다** — 코드 생성 시 신 키 전제.
+- ⚠️ **신 키는 JWT가 아니다**: `Authorization: Bearer`로 보내면 실패 — **`apikey` 헤더로 전송**. Edge Function을 신 키로 호출하려면 `verify_jwt = false` 필요.
+- 기존 프로젝트는 legacy 키와 병행 동작 (최종 삭제일 미확정) — 마이그레이션 시 Webhook/pg_net 호출부의 헤더도 함께 이전.
+- 본 문서에서 "publishable 키" = 구 anon, "secret 키" = 구 service_role 로 읽는다 (legacy 프로젝트).
 
 ---
 
@@ -41,9 +52,9 @@ src/
 │   │   ├── hooks/
 │   │   │   └── useAuth.ts      # 인증 훅 (supabase/auth.ts 사용)
 │   │   └── ...
-│   └── schedule/
+│   └── tasks/
 │       ├── hooks/
-│       │   └── useScheduleEvents.ts  # react-query + supabase/database.ts
+│       │   └── useTasks.ts     # react-query + supabase/database.ts
 │       └── ...
 supabase/
 ├── migrations/                 # 스키마 마이그레이션 파일
@@ -353,6 +364,27 @@ function useAuth() {
 - 인증이 필요한 화면은 `_layout.tsx`에서 가드 처리 (react-native.md 참조)
 - `user.id`를 RLS 정책의 `auth.uid()`와 매칭하여 데이터 접근 제어
 
+#### 서버측 사용자 확인 3형제 — 선택 기준 (혼용 금지)
+
+| 함수 | 하는 일 | 언제 쓰나 |
+|------|--------|----------|
+| `getSession()` | 로컬 저장 세션 반환 — **검증 없음** | UI 표시용 힌트만. **서버측 인가 판단에 절대 사용 금지** (위조 가능) |
+| `getClaims()` | JWT를 JWKS로 **로컬 검증** (네트워크 0회 — asymmetric 키 프로젝트) | 서버측 요청 인가의 기본 — 빠르고 검증됨 |
+| `getUser()` | Auth 서버에 조회 — **최신 사용자 상태 보장** | 로그아웃/밴/세션 무효화까지 확인해야 하는 민감 작업 (결제, 권한 변경) |
+
+> 신규 프로젝트는 asymmetric JWT + JWKS 가 기본 (2025-05+). SSR 은 `@supabase/ssr` 의 `getAll`/`setAll` 쿠키 인터페이스 사용 — 구 `get`/`set`/`remove` 는 deprecated.
+
+```typescript
+// ❌ Bad — 서버측 인가를 getSession으로 판단 (로컬 세션은 위조 가능 — 권한 상승 취약점)
+const { data: { session } } = await supabase.auth.getSession();
+if (session?.user) { await deleteResource(id); }
+
+// ✅ Good — 검증된 클레임 기반 (일반 요청) / 민감 작업은 getUser로 최신 상태 확인
+const { data: claims, error } = await supabase.auth.getClaims();
+if (error || !claims) { return unauthorized(); }
+await deleteResource(id, claims.sub);
+```
+
 ---
 
 ## Row Level Security (RLS)
@@ -411,7 +443,17 @@ CREATE POLICY "delete_owner_only"
 - `auth.uid()`로 현재 사용자를 식별한다
 - `USING`은 기존 행 접근 (SELECT, UPDATE, DELETE), `WITH CHECK`는 새 행 검증 (INSERT, UPDATE)
 - 복잡한 정책은 **PostgreSQL 함수**로 분리하여 재사용
-- RLS 정책에 **성능 주의**: 서브쿼리가 모든 행마다 실행되므로, 인덱스 필수
+- RLS 정책에 **성능 주의**: 정책이 참조하는 컬럼에 인덱스 필수
+- **🔑 `auth.uid()` 는 반드시 `(select auth.uid())` 로 감싼다** — 공식 확정 패턴 (아래)
+
+```sql
+-- ❌ 행마다 auth.uid() 재평가 — 10만 행 스캔 시 10만 번 함수 호출
+CREATE POLICY "own_rows" ON tasks USING (user_id = auth.uid());
+
+-- ✅ (select ...) 랩핑 → 옵티마이저가 initPlan으로 문장당 1회만 평가 (수십 배 차이)
+CREATE POLICY "own_rows" ON tasks USING (user_id = (select auth.uid()));
+```
+> Dashboard Advisors → Performance 의 `auth_rls_initplan` lint 가 미적용 정책을 자동 탐지한다. 단 행 데이터에 의존하지 않는 함수에만 적용 가능.
 
 ### 🔴 RLS 실전 함정 & 지뢰
 
@@ -421,6 +463,12 @@ CREATE POLICY "delete_owner_only"
 | 임베디드 집계(`table(count)`) + RLS = 500 | PostgREST가 RLS 정책을 적용하면서 집계 서브쿼리와 충돌 | 집계를 별도 쿼리로 분리 (FK 컬럼만 SELECT 후 코드에서 카운트) | count를 아예 제거하거나 RLS 비활성화 |
 | INSERT 후 데이터가 조회 안 됨 | 상태 컬럼(status 등)에 **기본값이 없어** NULL 저장 → `.eq('status', 'active')` 필터에 안 걸림 | DB 컬럼에 `DEFAULT 'active'` 설정 + INSERT 시 명시적으로 값 지정 | 필터를 제거하거나 NULL 체크 추가 |
 | 다른 테이블 조인 시 빈 배열 반환 | 참조하는 테이블의 RLS 정책이 현재 사용자 접근을 차단 | 참조 테이블의 RLS 정책 확인 및 필요한 SELECT 정책 추가 | 모든 정책을 `USING (true)`로 변경 |
+| RLS 켰더니 모든 요청이 빈 결과/거부 | RLS 활성 + **정책 0개 = 전체 차단**이 기본 동작 | 활성화와 동시에 최소 SELECT 정책부터 작성 (테이블 생성 체크리스트 참조) | RLS를 다시 꺼버림 (anon 키로 전체 노출) |
+| UPDATE가 에러 없이 0 rows — 조용히 실패 | UPDATE 는 대상 행을 먼저 **읽어야** 하는데 대응 SELECT 정책이 없음 | UPDATE 정책과 함께 같은 조건의 SELECT 정책 확인/추가 | UPDATE 정책의 USING 을 true 로 |
+| Realtime(Postgres Changes) 이벤트가 안 옴 — 에러도 없음 | RLS 가 replication 컨텍스트에서 이벤트를 **무음 필터링** (auth 컨텍스트 부재) | 구독 대상 테이블의 RLS 정책을 realtime 관점에서 검증 + private 채널/브로드캐스트 전환 검토 | RLS 를 끄고 구독 (전체 노출) |
+| 신 API 키로 요청 시 401 — 키는 분명 맞음 | `sb_publishable_`/`sb_secret_` 키는 **JWT가 아님** → `Authorization: Bearer` 로 보내면 실패 | **`apikey` 헤더로 전송**, Edge Function 은 `verify_jwt = false` | legacy anon 키로 되돌리기 (신규 프로젝트엔 없음) |
+| 컴파일은 통과하는데 런타임에 필드가 undefined | 스키마 변경(마이그레이션) 후 **타입 미재생성** — 생성 타입과 실제 DB 불일치 | 마이그레이션 직후 `supabase gen types` 재실행 (체크리스트 항목) | 해당 필드에 `as any`/옵셔널 처리로 침묵 |
+| Storage 업로드/다운로드만 403 — DB는 정상 | Storage 는 **`storage.objects` 테이블에 별도 RLS 정책** 필요 (버킷 만들었다고 끝 아님) | 버킷 생성 시 objects 정책(SELECT/INSERT 등)을 함께 작성 | 버킷을 public 으로 전환 (전체 파일 노출) |
 
 #### 재귀 RLS 정책 상세 설명
 
@@ -631,13 +679,14 @@ async function uploadProfileImage(userId: string, file: Blob): Promise<string> {
 
 ```typescript
 // supabase/functions/send-notification/index.ts
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// ❌ 구식 (2022 스타일): import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+// ✅ 현행: 내장 Deno.serve + npm: specifier (의존성은 supabase/functions/deno.json 에 선언)
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, // 서버에서만 service_role 사용
+    Deno.env.get('SUPABASE_SECRET_KEY')!, // 서버 전용 secret 키 (구 service_role) — 클라이언트 절대 금지
   );
 
   const { teamId, message } = await req.json();
@@ -660,9 +709,12 @@ serve(async (req) => {
 
 ### Edge Function 규칙
 
-- `service_role` 키는 **Edge Function에서만** 사용 (클라이언트 금지)
+- **`Deno.serve()` 가 표준** — `deno.land/std` 의 `serve` import 는 폐기된 스타일 (구식 코드 생성 금지)
+- 의존성: npm 패키지는 `npm:패키지명` / JSR 은 `jsr:@scope/패키지` specifier — 선언은 `supabase/functions/deno.json` 권장 (import map 보다 우선)
+- secret 키(구 service_role)는 **Edge Function/서버에서만** 사용 (클라이언트 금지)
+- 신 API 키(`sb_secret_...`)로 함수를 호출할 땐 함수 설정에 `verify_jwt = false` 필요 (신 키는 JWT가 아님 — 아래 "API 키 체계" 참조)
 - 클라이언트에서 직접 처리하면 안 되는 로직: 알림 발송, 결제 처리, 관리자 작업
-- 입력값 검증 필수 (zod 등)
+- 입력값 검증 필수 (zod 등 — `npm:zod`)
 - 에러 응답은 일관된 형식: `{ error: { code, message } }`
 - 타임아웃 고려 (Supabase Edge Function 기본 타임아웃: 60초)
 
@@ -753,27 +805,82 @@ async function fetchTeam(teamId: string): Promise<Team> {
 
 ## 보안
 
-- **`anon` 키만 클라이언트에**: `service_role` 키는 Edge Function/서버에서만
-- **환경 변수**: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` (Expo 공개 접두어)
+- **publishable 키만 클라이언트에**: secret 키(구 service_role)는 Edge Function/서버에서만
+- **환경 변수**: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` (Expo 공개 접두어 — 신 키 프로젝트는 PUBLISHABLE_KEY)
 - **RLS 정책 테스트**: 마이그레이션 작성 후 다른 사용자로 접근 시도하여 검증
 - **SQL Injection**: Supabase JS 클라이언트가 자동 파라미터화 — `.rpc()` 사용 시에도 안전
 - **민감 데이터 암호화**: 비밀번호, 결제 정보 등은 DB에 평문 저장 금지
 - **API Rate Limiting**: Supabase 대시보드에서 설정 가능 — 남용 방지
+
+```typescript
+// ❌ Bad — private 버킷 파일을 public URL로 노출 시도 (혹은 버킷을 public으로 전환)
+const { data } = supabase.storage.from('private-docs').getPublicUrl(path);
+// private 버킷이면 접근 불가, "해결"한답시고 버킷 public 전환 = 전체 파일 노출
+
+// ✅ Good — 만료 시간 있는 signed URL (접근 권한은 RLS/정책이 판단)
+const { data, error } = await supabase.storage
+  .from('private-docs')
+  .createSignedUrl(path, 60 * 10); // 10분 유효
+```
+
+```sql
+-- ✅ RLS 침투 테스트 — 다른 사용자 시점으로 정책을 직접 검증 (배포 전 필수)
+BEGIN;
+SET LOCAL role = 'authenticated';
+SET LOCAL request.jwt.claims = '{"sub": "다른-사용자-uuid"}';
+SELECT * FROM tasks;  -- ❌ 이 결과에 남의 행이 보이면 정책 결함
+ROLLBACK;
+```
 
 ---
 
 ## 성능 최적화
 
 ### 쿼리 성능
-- 자주 필터/정렬하는 컬럼에 **인덱스** 생성
+- 자주 필터/정렬하는 컬럼에 **인덱스** 생성 — RLS 정책이 참조하는 컬럼 포함
 - `select('*')` 대신 **필요한 컬럼만** 선택
 - 대용량 조회는 **페이지네이션** 필수 (`.range()`)
 - 관계 쿼리에서 **N+1 문제** 주의 — Supabase 관계 쿼리(`select('*, related(*)')`)는 자동으로 조인하므로 보통 안전
+
+```sql
+-- ✅ 인덱스: 필터 컬럼 + RLS 참조 컬럼. 효과는 추측 말고 EXPLAIN으로 측정
+CREATE INDEX idx_tasks_user_id ON tasks (user_id);          -- RLS의 user_id = (select auth.uid())
+CREATE INDEX idx_tasks_status_created ON tasks (status, created_at DESC); -- 목록 필터+정렬
+
+EXPLAIN ANALYZE SELECT * FROM tasks WHERE user_id = '...' AND status = 'active';
+-- Seq Scan이 나오면 인덱스 미사용 — 정책/쿼리 조건 재점검
+```
+
+```typescript
+// ❌ Bad — 전체 로드 후 클라이언트에서 자르기 (10만 행이면 그대로 10만 행 전송)
+const { data } = await supabase.from('tasks').select('*');
+const page = data?.slice(0, 20);
+
+// ✅ Good — 서버에서 페이지 단위로 (count는 필요할 때만)
+const { data, count } = await supabase
+  .from('tasks')
+  .select('id, title, status, created_at', { count: 'estimated' })
+  .order('created_at', { ascending: false })
+  .range(0, 19);
+```
 
 ### Realtime 성능
 - 구독은 **필요한 테이블/필터만** — 전체 구독 금지
 - 대량 업데이트 시 **디바운스** 적용
 - 컴포넌트 언마운트 시 **반드시 구독 해제**
+
+```typescript
+// ❌ Bad — 이벤트마다 즉시 재조회 (연속 업데이트 100건 = 재조회 100번)
+channel.on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+  refetch();
+});
+
+// ✅ Good — 디바운스로 마지막 이벤트 후 1회만
+const debouncedRefetch = debounce(refetch, 500);
+channel.on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+  debouncedRefetch();
+});
+```
 
 ### 연결 관리
 - Supabase 클라이언트는 내부적으로 커넥션 풀 관리 — 직접 관리 불필요
@@ -932,6 +1039,7 @@ npx supabase gen types typescript --local > src/services/supabase/types.ts
 - [ ] 다른 유저로 접근 테스트 (RLS 검증)
 - [ ] status 등 필터 대상 컬럼에 DEFAULT 값 설정
 - [ ] 외래 키에 인덱스 생성
+- [ ] 정책의 auth.uid() 가 (select auth.uid()) 로 랩핑됐는지 확인 (auth_rls_initplan lint)
 - [ ] 마이그레이션 파일 생성
 - [ ] 타입 재생성 (`supabase gen types`)
 ```
@@ -944,6 +1052,37 @@ npx supabase gen types typescript --local > src/services/supabase/types.ts
 - [ ] 단건 조회 시 .single() 사용
 - [ ] INSERT 시 필터 대상 컬럼 (status 등) 명시
 - [ ] 반환 타입 명시
+```
+
+### Edge Function 배포 시
+
+```
+- [ ] `Deno.serve()` 사용 (deno.land/std serve 아님) + 의존성 deno.json 선언
+- [ ] 입력 스키마 검증 (zod safeParse) + 에러 응답 형식 통일
+- [ ] secret 키가 코드/로그에 노출되지 않음 (Deno.env 만)
+- [ ] 신 API 키 호출 경로면 verify_jwt = false 설정 확인
+- [ ] 로컬 테스트: npx supabase functions serve → curl 로 정상/에러 케이스 확인
+```
+
+### 배포 전 (프로덕션)
+
+```
+- [ ] Dashboard Advisors (Security/Performance) 경고 0 — 특히 auth_rls_initplan, RLS 미활성 테이블
+- [ ] 신 키 체계 확인: 클라이언트 번들에 secret 키 미포함 (grep sb_secret_)
+- [ ] 마이그레이션이 로컬 db reset 으로 재현 가능 (드리프트 없음 — 회사/집 2환경 동기화 확인)
+- [ ] Realtime 구독의 unsubscribe 경로 존재 (화면 이탈 테스트)
+- [ ] 민감 작업(결제/권한)의 서버측 확인이 getUser() 기반인지 확인
+```
+
+### RLS 정책 수정 시
+
+```
+- [ ] 수정 전 현재 정책 백업 (pg_policies 조회 결과 기록)
+- [ ] auth.uid() 가 (select auth.uid()) 로 랩핑되어 있는지 확인
+- [ ] 같은 테이블 재참조(재귀) 없는지 확인
+- [ ] UPDATE 정책 수정 시 대응 SELECT 정책과 조건 일치 확인 (무음 실패 방지)
+- [ ] 침투 테스트: 다른 사용자 JWT 로 SET LOCAL 후 접근 시도 (보안 섹션 SQL)
+- [ ] 해당 테이블을 구독하는 Realtime 이 있으면 이벤트 수신 재확인 (무음 필터링)
 ```
 
 ### Supabase 500 에러 디버깅 흐름
@@ -966,7 +1105,8 @@ npx supabase gen types typescript --local > src/services/supabase/types.ts
 | 우회 패턴 (금지) | 위험성 | 정석 해결 |
 |-----------------|--------|----------|
 | `SECURITY DEFINER` 함수로 RLS 우회 | 전체 보안 모델 무력화 — 모든 사용자가 모든 데이터 접근 | RLS 정책 자체를 올바르게 수정 |
-| `service_role` 키를 클라이언트에서 사용 | RLS 완전 무시, 전체 DB 노출 | `anon` 키 + 올바른 RLS 정책 |
+| secret 키(구 service_role)를 클라이언트에서 사용 | RLS 완전 무시, 전체 DB 노출 | publishable 키 + 올바른 RLS 정책 |
+| `getSession()` 결과로 서버측 인가 판단 | 로컬 세션은 위조 가능 — 권한 상승 취약점 | `getClaims()`(기본) / `getUser()`(민감 작업) |
 | RLS 비활성화하여 에러 해결 | 보안 없음 상태로 배포 | 정책 점검 후 올바른 정책 설정 |
 | 쿼리가 500이면 해당 기능을 제거 | 근본 원인(RLS) 미해결, 다른 쿼리에서 동일 문제 재발 | RLS 정책 수정 또는 쿼리 분리 |
 
@@ -987,6 +1127,11 @@ npx supabase gen types typescript --local > src/services/supabase/types.ts
 > - 로컬/스테이징/프로덕션 환경 설정
 
 <!-- 개선 이력
+- 2026-07-03: 2026 최신화 (웹 리서치 기반, 출처 확보) — 신 API 키 체계(sb_publishable_/sb_secret_, apikey 헤더 함정),
+  Deno.serve + npm: specifier 전환, (select auth.uid()) initplan 패턴, getClaims/getUser/getSession 선택 기준,
+  RLS 함정 4→10행 (정책0 전체차단/UPDATE-SELECT 무음실패/Realtime 무음필터링/gen types 미재생성/Storage 별도 정책 등),
+  체크리스트 3→6종(RLS 정책 수정 시 포함), 보안(signed URL·RLS 침투 테스트 SQL)/성능(인덱스+EXPLAIN·페이지네이션·디바운스) 코드 예시 신설.
+  /ScoreRules 독립 채점: 60(상한)→74→**75점 Level 3** 확정.
 - 2026-03-27: 플랫폼별 Auth 설정 추가 — 웹에서 AsyncStorage 사용 시 세션 유실 발견
 - 2026-03-27: RLS 실전 함정 섹션 추가 — 중첩 조인/재귀 서브쿼리/임베디드 집계 + RLS = 500 발견
 - 2026-03-27: DB 컬럼 기본값 함정 추가 — status NULL로 INSERT 후 조회 누락 발견

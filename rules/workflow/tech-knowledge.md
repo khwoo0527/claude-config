@@ -29,7 +29,7 @@ paths:
 
 ### ❌ 들어가지 않는 것
 - **이 프로젝트만의 특정 모듈/스키마** → `agent-memory` 또는 `CLAUDE.md`
-- **사용자 작업 스타일** → `memory/feedback_*.md`
+- **사용자 작업 스타일** → `rules/memory/feedback_*.md`
 - **공식 진행 상태** → `ROADMAP.md` / `sprint{N}.md`
 
 ---
@@ -70,7 +70,7 @@ paths:
 
 ## 5. 점수/품질 기준
 
-[`rules-guide.md`](../../rules/workflow/rules-guide.md) 의 자가 채점 기준을 따른다. 누적 후 점수 변화는 별도 보고 X (외부 문서 README 갱신은 [`/UpdateReadme`](../../commands/UpdateReadme.md) 시점에).
+[`rules-guide.md`](../../rules/workflow/rules-guide.md) 의 품질 평가 체계를 따른다. 소소한 노하우 누적은 재채점 불필요. 섹션 추가/재작성급 대폭 수정 시에는 [`/ScoreRules`](../../commands/ScoreRules.md) 객관 채점 + README 반영 필수.
 
 ---
 
@@ -82,7 +82,7 @@ paths:
 |---|:-:|---|
 | Supabase trigger 중복 정의 함정 | ✅ Yes | `rules/tech/supabase.md` |
 | 이 프로젝트의 `teams` 테이블 스키마 | ❌ No | `agent-memory` 또는 `CLAUDE.md` |
-| 사용자가 한꺼번에 작업 싫어함 | (사용자 스타일) | `memory/feedback_work_style.md` |
+| 사용자가 한꺼번에 작업 싫어함 | (사용자 스타일) | `rules/memory/feedback_work_style.md` |
 | Sprint 3 다음 진입 | (진행 상태) | `ROADMAP.md` |
 
 판단 애매하면 사용자에게 컨펌.

@@ -8,19 +8,16 @@
 ````markdown
 # {프로젝트명}
 
-## 세션 시작 시 자동 로딩 (필수)
+## 세션 컨텍스트 로딩 (자동)
 
-이 프로젝트는 `.claude/` 폴더에 다음을 포함합니다:
-- `.claude/memory/` — 사용자 작업 스타일·원칙 (자동 로딩 대상 아님)
-- `.claude/rules/workflow/session-init.md` — 세션 절차/작업 유형별 로딩 매트릭스
-- `.claude/rules/tech/{tech}.md` — 기술 스택 전문 규칙
-- `.claude/rules/workflow/*.md` — 워크플로우 규칙
+이 프로젝트의 `.claude/rules/` 는 Claude Code 가 **네이티브 자동 로딩**합니다:
+- `.claude/rules/memory/` — 사용자 작업 스타일·원칙 (`paths` 없음 → 매 세션 자동)
+- `.claude/rules/workflow/session-init.md` — 세션 절차/작업 유형별 매트릭스 (매 세션 자동)
+- `.claude/rules/tech/{tech}.md` — 기술 스택 전문 규칙 (`paths` 매칭 파일 작업 시 조건부 자동)
+- `.claude/rules/workflow/*.md` — 워크플로우 규칙 (paths 유무 따라 상시/조건부)
 
-세션 시작 시 사용자는 **`/InitLoad` 슬래시 커맨드를 호출**하여 메모리와 세션 절차를 일괄 로딩한 뒤 작업을 시작합니다.
-`/InitLoad` 가 호출되지 않은 채로 작업 요청이 들어오면 — Claude 는 먼저 `/InitLoad` 절차를 수행하고 작업을 진행합니다.
-
-> Claude Code 가 자동 로딩하는 것은 이 `CLAUDE.md` 와 사용자 홈 메모리뿐입니다.
-> `.claude/memory/`, `.claude/rules/` 는 `/InitLoad` 또는 명시적 Read 가 필요합니다.
+**계획·리뷰 등 코드 파일을 안 건드리는 작업**은 조건부 로딩이 발동하지 않으므로, `session-init.md` 의 작업 유형별 매트릭스에 따라 해당 rules 를 명시적으로 Read 합니다.
+메모리 자동 주입이 의심될 때만 `/InitLoad` (로딩 상태 점검) 를 호출합니다.
 
 ## 에이전트 진입 절차 (필수, 모든 에이전트 공통)
 
@@ -99,7 +96,7 @@
 
 > **토큰/시크릿 관리**: 정석은 `.env` / 환경변수 분리.
 > 임시 평문 보관 시 ⚠️ 위험 표시 + 분리 일정 명시 필수 (public 전환 전 반드시 .env 분리).
-> 자세한 정책: [`memory/feedback_principles.md`](../.claude/memory/feedback_principles.md) "토큰/시크릿 관리" 섹션 참조.
+> 자세한 정책: [`rules/memory/feedback_principles.md`](./.claude/rules/memory/feedback_principles.md) "토큰/시크릿 관리" 섹션 참조.
 
 ## Notion 연동 (해당 시)
 - 루트 페이지: {URL}

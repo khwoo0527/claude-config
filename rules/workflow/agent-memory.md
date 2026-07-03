@@ -17,7 +17,7 @@ paths:
 | 위치 | 성격 | 누적/리셋 | 담는 것 |
 |---|---|---|---|
 | **`rules/tech/{tech}.md`** | 범용 기술 노하우 | 누적 (영구) | 다른 프로젝트에서도 통하는 안티패턴/함정/베스트 프랙티스 |
-| **`memory/feedback_*.md`** | 범용 사용자 작업 원칙 | 누적 (영구) | 작업 스타일/원칙 (반복 방지) |
+| **`rules/memory/feedback_*.md`** | 범용 사용자 작업 원칙 | 누적 (영구) | 작업 스타일/원칙 (반복 방지) |
 | **`agent-memory/{name}/`** | 이 프로젝트 작업 컨텍스트 | **새 프로젝트 시 리셋** | 이 프로젝트만 의미 있는 코드베이스 분석/작업 컨텍스트 |
 | **`ROADMAP.md` / `sprint{N}.md` / `deploy.md`** | 프로젝트 공식 진행 일지 | 새 프로젝트 시 새로 작성 | 진행 상태 (진실 원천) |
 
@@ -38,7 +38,7 @@ agent-memory 는 **이 프로젝트만 의미 있는 작업 컨텍스트의 캐�
 ### ❌ 담지 않을 것
 - **다른 프로젝트에서도 통하는 일반 노하우** → `rules/tech/{tech}.md` 로
   - 예: "Supabase 의 `update_updated_at()` 함수 중복 정의 금지" (모든 Supabase 프로젝트 공통)
-- **사용자 작업 스타일** → `memory/feedback_*.md` 로
+- **사용자 작업 스타일** → `rules/memory/feedback_*.md` 로
 - **공식 진행 상태** (Sprint 번호, Phase 분할, 배포 이력) → ROADMAP/sprint{N}.md/deploy.md 가 진실. agent-memory 에 캐시하면 두 곳 동기화 부담 발생.
 
 > **이유**: 진실 원천이 이미 다른 곳에 있으면 agent-memory 에 캐시하지 않는다. 새 세션에서 그때그때 Read.
@@ -49,7 +49,7 @@ agent-memory 는 **이 프로젝트만 의미 있는 작업 컨텍스트의 캐�
 
 작업 중 새로 발견된 정보는 다음 순서로 판단:
 
-1. **사용자 작업 스타일/원칙인가?** → `memory/feedback_*.md`
+1. **사용자 작업 스타일/원칙인가?** → `rules/memory/feedback_*.md`
 2. **다른 프로젝트에서도 통하는 기술 노하우인가?** → `rules/tech/{tech}.md` 보강
 3. **이 프로젝트의 공식 진행 상태/결정 사항인가?** → `CLAUDE.md` / `ROADMAP.md` / `sprint{N}.md` / `deploy.md`
 4. **위 어디에도 안 맞는 이 프로젝트 작업 컨텍스트인가?** → `agent-memory/{에이전트명}/MEMORY.md`
@@ -126,7 +126,7 @@ agent-memory 는 **이 프로젝트만 의미 있는 작업 컨텍스트의 캐�
 ## 8. 로딩 시점
 
 - agent-memory 는 **자동 로딩 X**. 해당 에이전트가 호출될 때 본인이 자기 폴더의 MEMORY.md 를 Read.
-- `/InitLoad` 의 메모리 일괄 로딩과는 무관 (`.claude/memory/` 만 InitLoad 대상).
+- 사용자 메모리(`.claude/rules/memory/`)의 rules 자동 로딩과는 무관 — agent-memory 는 rules 폴더 밖이므로 자동 로딩 대상이 아니다 (의도적 — 에이전트별 캐시를 모든 세션에 주입하면 낭비).
 
 ---
 

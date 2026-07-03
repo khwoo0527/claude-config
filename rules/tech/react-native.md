@@ -1,7 +1,6 @@
 ---
 paths:
   - "**/*.tsx"
-  - "**/*.ts"
   - "app.json"
   - "app.config.ts"
   - "babel.config.js"
@@ -24,10 +23,55 @@ paths:
 - **플랫폼 차이 인식**: iOS/Android/Web은 동작이 다르다. `Platform.OS`로 분기가 필요한 지점을 미리 파악한다.
 - **Expo 생태계 우선**: 가능하면 Expo SDK 모듈을 사용한다. 네이티브 모듈이 꼭 필요한 경우만 개발 빌드(dev client)로 전환한다.
 - **4가지 상태 필수**: 모든 화면은 로딩/에러/빈 데이터/정상 상태를 반드시 처리한다.
+- **New Architecture 전제**: 신규 코드는 New Architecture(Fabric + TurboModules) 위에서 동작한다 — 구 아키텍처 전용 API/패턴을 생성하지 않는다 (다음 섹션).
 
 ---
 
-## 2. 프로젝트 구조 (Expo Router 기반)
+## 2. New Architecture (신규 프로젝트 기본 전제)
+
+> RN 0.76+에서 기본 활성, **0.82+부터는 옵트아웃 설정 자체가 무시**되며 Expo SDK 55에서 레거시 아키텍처가 완전히 제거됐다.
+> 신규 코드는 New Architecture를 전제로 작성한다 — `newArchEnabled: false`로 돌아갈 길은 없다.
+
+### 달라지는 동작: state 배칭
+
+레거시에서는 `setTimeout`/네이티브 이벤트 콜백 안의 setState가 각각 렌더를 유발했지만,
+New Architecture에서는 **모든 setState가 항상 배칭**된다. "중간 렌더"에 의존하던 코드가 조용히 깨진다.
+
+```typescript
+// ❌ Bad: 연속 setState 사이의 "중간 렌더"에 의존 — 레거시에서 우연히 동작하던 코드
+setTimeout(() => {
+  setHighlight(true);   // 레거시: 렌더 1회 발생 → 하이라이트가 잠깐 보임
+  setHighlight(false);  // New Arch: 두 호출이 배칭 → 하이라이트가 아예 안 보임
+}, 0);
+
+// ✅ Good: 시간차 UI는 명시적으로 스케줄링 (짧은 강조 효과는 애니메이션 API가 정석)
+setHighlight(true);
+setTimeout(() => setHighlight(false), 300);
+```
+
+### Interop layer는 마이그레이션 유예 장치일 뿐
+
+- 레거시 네이티브 모듈은 interop layer로 당분간 동작하지만 **한시적이며 concurrent 기능 미지원**. "interop으로 돌아가니까 OK"는 라이브러리 선택 기준이 될 수 없다.
+- 서드파티 호환이 New Arch의 최대 난관 — 새 라이브러리 도입 전 반드시 호환 확인.
+
+### 라이브러리 호환 확인법
+
+- [ ] reactnative.directory 에서 "Supports New Architecture" 필터로 확인
+- [ ] `npx expo-doctor` — 의존성/설정 문제 일괄 진단
+- [ ] README/최근 릴리즈 노트에서 New Architecture 지원 명시 확인 — 장기 미갱신(1년+) 라이브러리는 도입 재고
+
+### 구 아키텍처 전용 API 회피 목록
+
+| 구 API (생성 금지) | 대체 |
+|---|---|
+| `SafeAreaView` (react-native 코어 — 0.81 deprecated) | `react-native-safe-area-context` |
+| `UIManager.setLayoutAnimationEnabledExperimental` + `LayoutAnimation` | Reanimated entering/exiting/layout 애니메이션 |
+| `findNodeHandle` + `UIManager` 직접 조작 | ref 직접 메서드 호출 (`ref.current?.measure(...)`) |
+| `Clipboard`, `PushNotificationIOS` (코어에서 추출됨) | `expo-clipboard`, `expo-notifications` |
+
+---
+
+## 3. 프로젝트 구조 (Expo Router 기반)
 
 ```
 {project-root}/
@@ -81,7 +125,7 @@ paths:
 
 ---
 
-## 3. 네이밍 컨벤션
+## 4. 네이밍 컨벤션
 
 > TypeScript 기본 네이밍은 `typescript.md` 참조. 여기서는 React Native 특화만.
 
@@ -112,23 +156,11 @@ paths:
 | boolean 상태 | is/has/show 접두어 | `isVisible`, `hasPermission`, `showModal` |
 | 스타일 | camelCase | `containerStyle`, `headerWrapper` |
 | 상수 | UPPER_SNAKE_CASE | `MAX_CONTENT_WIDTH`, `API_TIMEOUT` |
-| enum 값 | PascalCase | `UserRole.Admin`, `Status.Active` |
-
-```typescript
-// 컴포넌트: PascalCase, 역할이 드러나는 이름
-export function ItemCard({ item }: ItemCardProps) { ... }
-export function EmptyListView() { ... }
-
-// 화면: ~Screen 접미어 (프로젝트에서 통일)
-export default function DetailScreen() { ... }
-
-// 레이아웃: ~Layout
-export default function TabLayout() { ... }
-```
+| enum 대체 (`as const` union) 값 | PascalCase 키 | `UserRole.Admin`, `Status.Active` |
 
 ---
 
-## 4. 코드 포맷팅
+## 5. 코드 포맷팅
 
 > TypeScript 기본 포맷팅(`typescript.md`)을 따르되, 아래 React Native 특화 규칙을 추가 적용.
 
@@ -170,11 +202,11 @@ return <View>{statusBadge}</View>;
 
 ---
 
-## 5. import/export 규칙
+## 6. import/export 규칙
 
 ```typescript
 // 1. React / React Native 코어
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Pressable, Platform, ScrollView } from 'react-native';
 
 // 2. Expo SDK
@@ -203,22 +235,14 @@ import type { Item, ItemStatus } from './types';
 
 ### export 규칙
 
-- **화면 컴포넌트**: `export default` (Expo Router 필수)
-- **재사용 컴포넌트**: `named export` 우선 (tree-shaking, 자동 import 용이)
-- **훅**: `named export`
-- **타입**: `export type` / `export interface` 사용
-- **배럴 파일(index.ts)**: 기능 폴더 단위로 re-export, 2단계 이상 깊이 금지
+> named export 우선/`import type` 등 일반 규칙 → `typescript.md` 참조. RN 특화만:
 
-```typescript
-// src/features/auth/index.ts — 배럴 파일
-export { useAuth } from './hooks/useAuth';
-export { LoginButton } from './components/LoginButton';
-export type { AuthUser, AuthSession } from './types';
-```
+- **화면 컴포넌트만 `export default`** (Expo Router가 요구) — 그 외는 named export
+- **배럴 파일(index.ts)**: 기능 폴더 단위 re-export 전용, 2단계 이상 깊이 금지
 
 ---
 
-## 6. 파일 내부 코드 순서 (컴포넌트 파일)
+## 7. 파일 내부 코드 순서 (컴포넌트 파일)
 
 ```typescript
 // ===== 1. import 문 (위 순서 준수) =====
@@ -239,13 +263,11 @@ export function ItemCard({ item, onPress, isSelected = false }: ItemCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { theme } = useTheme();
 
-  // 4-2. 파생 값 (useMemo, 단순 계산)
-  const formattedDate = useMemo(() => formatDate(item.createdAt), [item.createdAt]);
+  // 4-2. 파생 값 — 렌더 중 계산 (React Compiler가 자동 메모이제이션, 수동 useMemo 불필요)
+  const formattedDate = formatDate(item.createdAt);
 
-  // 4-3. 콜백 (useCallback)
-  const handlePress = useCallback(() => {
-    onPress(item.id);
-  }, [item.id, onPress]);
+  // 4-3. 핸들러 (수동 useCallback 불필요 — 컴파일러 위임)
+  const handlePress = () => onPress(item.id);
 
   // 4-4. 부수 효과 (useEffect) — 최소화
   useEffect(() => {
@@ -277,7 +299,7 @@ const styles = StyleSheet.create({
 
 ---
 
-## 7. 컴포넌트 설계 패턴
+## 8. 컴포넌트 설계 패턴
 
 ### 기본 컴포넌트
 
@@ -289,9 +311,7 @@ interface ItemCardProps {
 }
 
 export function ItemCard({ item, onPress, isHighlighted = false }: ItemCardProps) {
-  const handlePress = useCallback(() => {
-    onPress(item.id);
-  }, [item.id, onPress]);
+  const handlePress = () => onPress(item.id); // React Compiler가 최적화 — useCallback 불필요
 
   return (
     <Pressable
@@ -313,7 +333,7 @@ export function ItemCard({ item, onPress, isHighlighted = false }: ItemCardProps
 - **100줄 초과** -> 하위 컴포넌트로 분리
 - **재사용 가능** -> `shared/components/`로 이동
 - **조건부 렌더링이 복잡** -> 별도 컴포넌트로 추출
-- **리스트 아이템** -> 반드시 별도 컴포넌트 (`React.memo` 적용 위해)
+- **리스트 아이템** -> 반드시 별도 컴포넌트 (렌더 단위 격리 — 컴파일러 최적화 경계 + 재사용)
 
 ### 합성(Composition) 패턴
 
@@ -329,60 +349,17 @@ export function ItemCard({ item, onPress, isHighlighted = false }: ItemCardProps
   </Card.Footer>
 </Card>
 
-// 합성 컴포넌트 구현
+// 합성 컴포넌트 구현 — 정적 프로퍼티로 하위 컴포넌트 부착
 function Card({ children }: PropsWithChildren) {
   return <View className="bg-white rounded-xl border border-gray-200">{children}</View>;
 }
-
 Card.Header = function CardHeader({ title }: { title: string }) {
-  return (
-    <View className="px-4 py-3 border-b border-gray-100">
-      <Text className="text-lg font-bold">{title}</Text>
-    </View>
-  );
+  return <View className="px-4 py-3 border-b border-gray-100"><Text className="text-lg font-bold">{title}</Text></View>;
 };
-
 Card.Body = function CardBody({ children }: PropsWithChildren) {
   return <View className="p-4">{children}</View>;
 };
-
-Card.Footer = function CardFooter({ children }: PropsWithChildren) {
-  return <View className="px-4 py-3 border-t border-gray-100">{children}</View>;
-};
-```
-
-### Render Props 패턴 (고급)
-
-```typescript
-// 리스트 래퍼: 로딩/에러/빈 상태를 자동 처리
-interface AsyncListProps<T> {
-  queryResult: UseQueryResult<T[]>;
-  renderItem: (item: T) => ReactNode;
-  emptyMessage: string;
-  estimatedItemSize: number;
-}
-
-function AsyncList<T extends { id: string }>({
-  queryResult,
-  renderItem,
-  emptyMessage,
-  estimatedItemSize,
-}: AsyncListProps<T>) {
-  const { data, isLoading, error, refetch } = queryResult;
-
-  if (isLoading) return <LoadingSkeleton />;
-  if (error) return <ErrorView error={error} onRetry={refetch} />;
-  if (!data?.length) return <EmptyView message={emptyMessage} />;
-
-  return (
-    <FlashList
-      data={data}
-      renderItem={({ item }) => renderItem(item)}
-      estimatedItemSize={estimatedItemSize}
-      keyExtractor={(item) => item.id}
-    />
-  );
-}
+// Card.Footer 등 동일 패턴
 ```
 
 ### 조건부 렌더링
@@ -409,7 +386,7 @@ return (
 
 ---
 
-## 8. 훅(Hooks) 규칙
+## 9. 훅(Hooks) 규칙
 
 ### 기본 규칙
 - 훅은 컴포넌트/훅의 **최상위**에서만 호출 (조건문/루프 안 금지)
@@ -443,7 +420,7 @@ const [maxCount, setMaxCount] = useState(8);
 // 규칙: useEffect는 최소화
 // 데이터 fetching -> react-query 사용
 // 이벤트 구독 -> useEffect OK (cleanup 필수!)
-// 파생 값 계산 -> useMemo 또는 렌더링 중 계산
+// 파생 값 계산 -> 렌더링 중 계산 (React Compiler가 최적화 — 수동 useMemo 지양, § 성능 참조)
 
 // Good: cleanup 포함한 구독
 useEffect(() => {
@@ -478,29 +455,24 @@ useEffect(async () => { // 에러! useEffect는 async 함수를 받지 않음
 }, []);
 ```
 
-### useCallback / useMemo
+### useCallback / useMemo / React.memo — React Compiler 시대의 규칙
+
+> **Expo SDK 54+는 React Compiler가 기본 활성** — 컴파일러가 자동 메모이제이션한다.
+> 수동 `useMemo`/`useCallback`/`React.memo`는 이제 노이즈 + 의존성 배열 버그 표면일 뿐이다.
 
 ```typescript
-// useCallback: memo된 자식에 전달하는 콜백에만 사용
-const handlePress = useCallback((id: string) => {
-  router.push(`/item/${id}`);
-}, [router]);
+// ❌ Bad: 습관적 수동 메모이제이션 — 컴파일러와 중복, 의존성 누락 시 stale closure 버그
+const handlePress = useCallback((id: string) => router.push(`/item/${id}`), [router]);
+const sorted = useMemo(() => [...items].sort(byDate), [items]);
 
-// useMemo: 비용이 큰 계산에만
-const sortedItems = useMemo(
-  () => [...items].sort((a, b) => a.date.localeCompare(b.date)),
-  [items],
-);
-
-// useMemo: 불변 참조 유지 (자식 컴포넌트 리렌더 방지)
-const filterOptions = useMemo(
-  () => ({ status: activeStatus, category: selectedCategory }),
-  [activeStatus, selectedCategory],
-);
-
-// Bad: 모든 곳에 남용 -> 오히려 메모리 낭비
-const title = useMemo(() => `Hello ${name}`, [name]); // 단순 문자열에 불필요
+// ✅ Good: 그냥 쓴다 — 컴파일러가 최적화
+const handlePress = (id: string) => router.push(`/item/${id}`);
+const sorted = [...items].sort(byDate);
 ```
+
+**수동 메모이제이션이 정당한 예외** (이 경우만 허용):
+- React Compiler 비활성 레거시 프로젝트 — 이때도 **측정 후** 선별 적용
+- `eslint-plugin-react-compiler`가 "최적화 불가"로 지적하는 컴포넌트 — 단, 먼저 Rules of React 위반(조건부 훅, 렌더 중 부수효과)을 수정하는 것이 정석
 
 ### 커스텀 훅 패턴
 
@@ -521,29 +493,21 @@ function useItemList(categoryId: string) {
   } as const;
 }
 
-// Good: mutation 로직 캡슐화
+// Good: mutation도 훅으로 캡슐화 — onSuccess(무효화+이동)/onError(토스트)까지 포함해 반환
 function useCreateItem() {
   const queryClient = useQueryClient();
-  const router = useRouter();
-
   const { mutate, isPending } = useMutation({
     mutationFn: createItem,
-    onSuccess: (newItem) => {
-      queryClient.invalidateQueries({ queryKey: ['items'] });
-      router.push(`/item/${newItem.id}`);
-    },
-    onError: (error) => {
-      showToast(error instanceof AppError ? error.userMessage : 'Failed to create');
-    },
+    onSuccess: (newItem) => queryClient.invalidateQueries({ queryKey: ['items'] }),
+    onError: (error) => showToast(getErrorMessage(error)),
   });
-
   return { create: mutate, isCreating: isPending };
 }
 ```
 
 ---
 
-## 9. 폼 패턴 (react-hook-form + zod)
+## 10. 폼 패턴 (react-hook-form + zod)
 
 ### zod 스키마 정의
 
@@ -552,24 +516,10 @@ import { z } from 'zod';
 
 // 스키마를 컴포넌트 외부에 정의 (재사용 + 렌더링 시 재생성 방지)
 const createItemSchema = z.object({
-  title: z
-    .string()
-    .min(2, '제목은 2자 이상 입력해주세요')
-    .max(50, '제목은 50자 이하로 입력해주세요'),
-  description: z
-    .string()
-    .max(500, '설명은 500자 이하로 입력해주세요')
-    .optional(),
-  maxCount: z
-    .number()
-    .min(2, '최소 2명 이상')
-    .max(100, '최대 100명'),
-  price: z
-    .number()
-    .min(0, '가격은 0 이상이어야 합니다'),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, '올바른 날짜 형식이 아닙니다'),
+  title: z.string().min(2, '제목은 2자 이상 입력해주세요').max(50, '제목은 50자 이하로 입력해주세요'),
+  description: z.string().max(500, '설명은 500자 이하로 입력해주세요').optional(),
+  maxCount: z.number().min(2, '최소 2 이상').max(100, '최대 100'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '올바른 날짜 형식이 아닙니다'),
 });
 
 // 스키마에서 타입 추출
@@ -591,13 +541,7 @@ export function CreateItemScreen() {
     formState: { errors, isValid },
   } = useForm<CreateItemForm>({
     resolver: zodResolver(createItemSchema),
-    defaultValues: {
-      title: '',
-      description: '',
-      maxCount: 8,
-      price: 0,
-      date: '',
-    },
+    defaultValues: { title: '', description: '', maxCount: 8, date: '' },
     mode: 'onBlur', // 포커스 해제 시 검증 (타이핑 중 에러 방지)
   });
 
@@ -607,15 +551,8 @@ export function CreateItemScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={{ padding: 16 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* 텍스트 입력 */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
           <Controller
             control={control}
             name="title"
@@ -627,51 +564,14 @@ export function CreateItemScreen() {
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  placeholder="Enter title"
                   maxLength={50}
                 />
-                {errors.title && (
-                  <Text className="text-red-500 text-xs mt-1">{errors.title.message}</Text>
-                )}
+                {errors.title && <Text className="text-red-500 text-xs mt-1">{errors.title.message}</Text>}
               </View>
             )}
           />
-
-          {/* 숫자 입력 */}
-          <Controller
-            control={control}
-            name="maxCount"
-            render={({ field: { onChange, value } }) => (
-              <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-700 mb-1">Max Count</Text>
-                <View className="flex-row items-center">
-                  <Pressable
-                    onPress={() => onChange(Math.max(2, value - 1))}
-                    className="w-10 h-10 items-center justify-center bg-gray-100 rounded-lg"
-                  >
-                    <Text className="text-lg">-</Text>
-                  </Pressable>
-                  <Text className="mx-4 text-lg font-bold">{value}</Text>
-                  <Pressable
-                    onPress={() => onChange(Math.min(100, value + 1))}
-                    className="w-10 h-10 items-center justify-center bg-gray-100 rounded-lg"
-                  >
-                    <Text className="text-lg">+</Text>
-                  </Pressable>
-                </View>
-                {errors.maxCount && (
-                  <Text className="text-red-500 text-xs mt-1">{errors.maxCount.message}</Text>
-                )}
-              </View>
-            )}
-          />
-
-          {/* 제출 버튼 */}
-          <Button
-            title={isCreating ? 'Creating...' : 'Create'}
-            onPress={onSubmit}
-            disabled={!isValid || isCreating}
-          />
+          {/* 숫자 입력: 증감 버튼(onChange(Math.max(2, value - 1))) 또는 keyboardType="numeric" */}
+          <Button title={isCreating ? 'Creating...' : 'Create'} onPress={onSubmit} disabled={!isValid || isCreating} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -682,14 +582,8 @@ export function CreateItemScreen() {
 ### 공통 폼 입력 컴포넌트
 
 ```typescript
-// 재사용 가능한 폼 필드 래퍼
-interface FormFieldProps {
-  label: string;
-  error?: string;
-  children: ReactNode;
-}
-
-function FormField({ label, error, children }: FormFieldProps) {
+// 재사용 폼 필드 래퍼 — 라벨 + children + 에러 텍스트를 한 곳에서
+function FormField({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     <View className="mb-4">
       <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>
@@ -698,17 +592,7 @@ function FormField({ label, error, children }: FormFieldProps) {
     </View>
   );
 }
-
-// 사용
-<FormField label="Title" error={errors.title?.message}>
-  <Controller
-    control={control}
-    name="title"
-    render={({ field: { onChange, onBlur, value } }) => (
-      <TextInput value={value} onChangeText={onChange} onBlur={onBlur} />
-    )}
-  />
-</FormField>
+// 사용: <FormField label="Title" error={errors.title?.message}><Controller ... /></FormField>
 ```
 
 ### 폼 규칙
@@ -722,7 +606,7 @@ function FormField({ label, error, children }: FormFieldProps) {
 
 ---
 
-## 10. 상태 관리 (zustand + react-query)
+## 11. 상태 관리 (zustand + react-query)
 
 ### 역할 분리 원칙
 
@@ -735,14 +619,33 @@ function FormField({ label, error, children }: FormFieldProps) {
 
 > **원칙**: 서버에서 온 데이터는 반드시 react-query로 관리한다. zustand에 서버 데이터를 복사하지 않는다.
 
-### zustand 스토어 패턴
+### 로컬 스토리지 선택 기준
+
+| 데이터 | 저장소 | 이유 |
+|------|------|------|
+| 상태 persist (zustand 등) | **react-native-mmkv** | 동기 API, AsyncStorage 대비 ~30배 빠름 |
+| 토큰/비밀번호/민감 정보 | **expo-secure-store** | iOS Keychain / Android Keystore 암호화 |
+| AsyncStorage API가 필요한 기존 코드 | **expo-sqlite/kv-store** | AsyncStorage 호환 드롭인 대체 |
+| 쿼리가 필요한 구조화 데이터 | **expo-sqlite** | SQL, 오프라인 캐시 |
+
+> `@react-native-async-storage/async-storage` 신규 도입 지양 — 느린 비동기 왕복 + 암호화 없음. 위 표의 대체재를 쓴다.
+
+### zustand 스토어 패턴 (persist는 MMKV)
 
 ```typescript
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware';
+import { MMKV } from 'react-native-mmkv';
 
-// 슬라이스 인터페이스
+const mmkv = new MMKV();
+
+const mmkvStorage: StateStorage = {
+  setItem: (name, value) => mmkv.set(name, value),
+  getItem: (name) => mmkv.getString(name) ?? null,
+  removeItem: (name) => mmkv.delete(name),
+};
+
+// 슬라이스 인터페이스 (기능별로 분리해 합성)
 interface AuthSlice {
   session: Session | null;
   setSession: (session: Session | null) => void;
@@ -751,37 +654,25 @@ interface AuthSlice {
 
 interface SettingsSlice {
   theme: 'light' | 'dark' | 'system';
-  notificationsEnabled: boolean;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
-  toggleNotifications: () => void;
 }
 
-// 스토어 합성 (슬라이스 패턴)
 interface AppStore extends AuthSlice, SettingsSlice {}
 
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
-      // Auth slice
       session: null,
       setSession: (session) => set({ session }),
       clearSession: () => set({ session: null }),
-
-      // Settings slice
       theme: 'system',
-      notificationsEnabled: true,
       setTheme: (theme) => set({ theme }),
-      toggleNotifications: () =>
-        set((state) => ({ notificationsEnabled: !state.notificationsEnabled })),
     }),
     {
       name: 'app-store',
-      storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({
-        // 영속할 상태만 선택 (session은 secure-store에 별도 저장)
-        theme: state.theme,
-        notificationsEnabled: state.notificationsEnabled,
-      }),
+      storage: createJSONStorage(() => mmkvStorage),
+      // 영속할 상태만 선택 — session(토큰 포함)은 secure-store에 별도 저장, persist 금지
+      partialize: (state) => ({ theme: state.theme }),
     },
   ),
 );
@@ -883,7 +774,11 @@ function useToggleFavorite() {
 
 ---
 
-## 11. 네비게이션 (Expo Router)
+## 12. 네비게이션 (Expo Router)
+
+> 🔴 **SDK 56+: `@react-navigation/*` 직접 import 금지.** Expo Router가 React Navigation을 **포크해 내장**한다 —
+> `@react-navigation/native` 등을 별도 설치/직접 import하면 이중 인스턴스로 네비게이션 상태가 파손되고 SDK 업그레이드마다 깨진다.
+> 네비게이션 API는 **expo-router가 re-export하는 것만** 사용한다.
 
 ```typescript
 import { useRouter, useLocalSearchParams, Link, Redirect } from 'expo-router';
@@ -939,28 +834,37 @@ export default function TabLayout() {
 }
 ```
 
-### 타입 안전한 라우트 파라미터
+### 라우트 파라미터 — 제네릭은 캐스팅일 뿐, 검증이 아니다
+
+URL 파라미터는 런타임에 **항상 `string | string[]`** 이다. `useLocalSearchParams<T>()`의 제네릭은 단언에 불과하다 — 숫자/불리언이 필요하면 경계에서 파싱한다.
 
 ```typescript
-// 라우트 파라미터 타입 정의
-type ItemRouteParams = {
-  id: string;
-};
+import { z } from 'zod';
 
-// 사용
+const itemParamsSchema = z.object({
+  id: z.string().min(1),
+  tab: z.enum(['info', 'reviews']).catch('info'),  // 잘못된 값은 기본값으로
+  page: z.coerce.number().int().positive().catch(1), // "3" → 3 변환 + 검증
+});
+
 export default function ItemDetailScreen() {
-  const { id } = useLocalSearchParams<ItemRouteParams>();
+  const raw = useLocalSearchParams();
+  const parsed = itemParamsSchema.safeParse(raw);
 
-  // id가 없으면 에러 화면
-  if (!id) return <ErrorView message="Invalid item ID" />;
+  if (!parsed.success) return <ErrorView message="Invalid item ID" />;
 
-  return <ItemDetail itemId={id} />;
+  return <ItemDetail itemId={parsed.data.id} page={parsed.data.page} />;
 }
+
+// ❌ Bad: 제네릭만 믿고 숫자 연산 — 런타임엔 string이라 "1" + 1 = "11"
+const { page } = useLocalSearchParams<{ page: number }>(); // 거짓 타입
 ```
 
 ---
 
-## 12. 스타일링 (NativeWind / Tailwind)
+## 13. 스타일링 (NativeWind / Tailwind)
+
+> NativeWind는 **v4가 프로덕션 표준** (v5는 pre-release — 프로덕션 도입 금지).
 
 ### NativeWind 기본 규칙
 
@@ -998,40 +902,16 @@ export default function ItemDetailScreen() {
 ### 테마/디자인 토큰
 
 ```typescript
-// shared/styles/theme.ts
+// shared/styles/theme.ts — 색상/간격/radius를 as const 토큰으로 정의
 export const colors = {
   primary: '#2e7d32',
-  primaryDark: '#1b5e20',
   error: '#e53935',
-  warning: '#f57c00',
-  info: '#1565c0',
   background: '#f0f2f5',
   surface: '#ffffff',
-  gray: {
-    50: '#fafafa',
-    100: '#f5f5f5',
-    300: '#e0e0e0',
-    500: '#9e9e9e',
-    700: '#616161',
-    900: '#212121',
-  },
+  gray: { 100: '#f5f5f5', 300: '#e0e0e0', 500: '#9e9e9e', 900: '#212121' },
 } as const;
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-} as const;
-
-export const borderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  full: 9999,
-} as const;
+export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 ```
 
 - 색상 값을 컴포넌트에 직접 쓰지 않는다 -> 테마 토큰 또는 Tailwind 설정 참조
@@ -1059,7 +939,7 @@ export const borderRadius = {
 
 ---
 
-## 13. 반응형 디자인 + 웹 호환성 + 화면 생성 체크리스트
+## 14. 반응형 디자인 + 웹 호환성
 
 ### 브레이크포인트 기준
 
@@ -1088,7 +968,7 @@ export const borderRadius = {
 ### 반응형 훅
 
 ```typescript
-import { useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native'; // Dimensions.get() 금지 — 회전/리사이즈 미대응
 
 function useDeviceType() {
   const { width } = useWindowDimensions();
@@ -1098,24 +978,7 @@ function useDeviceType() {
     isDesktop: width >= 1024,
   } as const;
 }
-
-// 사용: 모바일은 풀스크린, 데스크톱은 사이드바
-function AppLayout({ children }: PropsWithChildren) {
-  const { isDesktop } = useDeviceType();
-
-  if (isDesktop) {
-    return (
-      <View className="flex-row max-w-[1200px] mx-auto">
-        <View className="w-64 border-r border-gray-200">
-          <Sidebar />
-        </View>
-        <View className="flex-1">{children}</View>
-      </View>
-    );
-  }
-
-  return <View className="flex-1">{children}</View>;
-}
+// 사용 예: isDesktop이면 사이드바 레이아웃, 아니면 풀스크린 — 구조 분기는 이 훅으로
 ```
 
 ### 웹 호환성 필수 규칙
@@ -1140,56 +1003,26 @@ function AppLayout({ children }: PropsWithChildren) {
 **2. `Alert.alert()` 웹에서 작동 안 함**
 
 ```typescript
-// Bad: 웹에서 크래시
-Alert.alert('Confirm', 'Are you sure?', [
-  { text: 'Cancel' },
-  { text: 'OK', onPress: handleConfirm },
-]);
+// ❌ Bad: 웹에서 조용히 무시됨 — 확인 없이 파괴적 동작이 그냥 실행됨
+Alert.alert('Confirm', 'Are you sure?', [{ text: 'OK', onPress: handleConfirm }]);
 
-// Good: 크로스플랫폼 확인 다이얼로그
-function useConfirmDialog() {
-  const [state, setState] = useState<{
-    visible: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  }>({ visible: false, title: '', message: '', onConfirm: () => {} });
-
-  const confirm = useCallback((title: string, message: string, onConfirm: () => void) => {
-    if (Platform.OS === 'web') {
-      // 웹: window.confirm 사용
-      if (window.confirm(`${title}\n${message}`)) {
-        onConfirm();
-      }
-    } else {
-      // 네이티브: Alert.alert 사용
-      Alert.alert(title, message, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'OK', onPress: onConfirm },
-      ]);
-    }
-  }, []);
-
-  return { confirm };
+// ✅ Good: 크로스플랫폼 confirm 헬퍼 — 웹은 window.confirm, 네이티브는 Alert.alert
+function confirmDialog(title: string, message: string, onConfirm: () => void) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${title}\n${message}`)) onConfirm();
+  } else {
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'OK', onPress: onConfirm },
+    ]);
+  }
 }
 ```
 
-**3. SafeAreaView 필수 래핑**
+**3. SafeAreaView 필수 래핑 — 반드시 react-native-safe-area-context**
 
-```typescript
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Good: 모든 화면 최상위
-export default function SomeScreen() {
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f2f5' }}>
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
-        {/* content */}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-```
+- 🔴 RN 코어 `SafeAreaView`는 0.81에서 deprecated (iOS 전용 + 불완전) — 코어에서 import 금지
+- 모든 화면 최상위를 `SafeAreaView`(safe-area-context)로 래핑 (`flex: 1` + `backgroundColor` 명시) — 아래 "화면 생성 템플릿" 참조
 
 ### 폭 제한 필수 규칙 (웹 반응형)
 
@@ -1214,22 +1047,14 @@ export default function SomeScreen() {
 <ScrollView contentContainerStyle={{ padding: 16, maxWidth: 448 }}>
 ```
 
-### 화면 생성 체크리스트
+### 화면 생성 템플릿
 
-| # | 항목 | 확인 |
-|---|------|------|
-| 1 | `SafeAreaView`로 최상위 래핑 | `style={{ flex: 1, backgroundColor }}` |
-| 2 | `maxWidth` 제한 적용 | 용도에 맞는 상수 사용 |
-| 3 | `width: '100%'` + `alignSelf: 'center'` 세트 | maxWidth와 함께 3종 세트 |
-| 4 | ScrollView는 `contentContainerStyle` 사용 | `contentContainerClassName` 금지 |
-| 5 | 배경색 명시 | 투명 배경 -> 플랫폼별 기본색 불일치 방지 |
-| 6 | 4가지 상태 처리 | 로딩 / 에러 / 빈 데이터 / 정상 |
-| 7 | 키보드 회피 (폼 화면) | `KeyboardAvoidingView` + `keyboardShouldPersistTaps` |
-| 8 | 웹 확인 | `npx expo start --web`으로 데스크톱 너비에서 확인 |
+> 새 화면 추가 시 점검 항목 → "검증 체크리스트" 섹션의 **"새 화면 추가 시"** 를 따른다 (단일 원천).
 
 ```typescript
 // 화면 생성 템플릿
-import { SafeAreaView, ScrollView } from 'react-native';
+import { ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // RN 코어 것 금지 (0.81 deprecated)
 
 export default function NewScreen() {
   return (
@@ -1252,22 +1077,11 @@ export default function NewScreen() {
 ### 반응형 컴포넌트 패턴
 
 ```typescript
-// 반응형 컨테이너
+// 반응형 컨테이너 (공용 래퍼 1개로 통일 — 화면마다 브레이크포인트 반복 금지)
 function Container({ children, className }: PropsWithChildren<{ className?: string }>) {
   return (
     <View className={`flex-1 px-4 md:px-8 lg:max-w-[1200px] lg:mx-auto lg:px-12 ${className ?? ''}`}>
       {children}
-    </View>
-  );
-}
-
-// 반응형 그리드
-function ResponsiveGrid({ children }: PropsWithChildren) {
-  return (
-    <View className="flex-col md:flex-row md:flex-wrap">
-      {React.Children.map(children, (child) => (
-        <View className="w-full md:w-1/2 lg:w-1/3 p-2">{child}</View>
-      ))}
     </View>
   );
 }
@@ -1278,85 +1092,36 @@ function ResponsiveGrid({ children }: PropsWithChildren) {
 
 ---
 
-## 14. 애니메이션 & 제스처
+## 15. 애니메이션 & 제스처
 
-### 언제 어떤 방법을 쓸 것인가
+### 언제 어떤 방법을 쓸 것인가 (Reanimated 4 기준)
+
+> Reanimated 4는 **New Architecture 전용**이며, worklet 런타임이 **별도 패키지(`react-native-worklets`)로 분리**됐다.
+> `LayoutAnimation` + `UIManager.setLayoutAnimationEnabledExperimental`은 구 아키텍처 API — 신규 코드 생성 금지.
 
 | 상황 | 방법 | 예시 |
 |------|------|------|
-| 단순 마운트/언마운트 전환 | `LayoutAnimation` | 리스트 아이템 추가/삭제 |
-| Animated API (기본) | `Animated` (RN 내장) | 페이드인, 슬라이드 (간단) |
-| 60fps 필수 제스처 연동 | `react-native-reanimated` | 스와이프 삭제, 바텀시트 드래그 |
+| 단순 상태 전환 (색상, 크기, 투명도) | Reanimated 4 **CSS 애니메이션 API** (`transitionProperty` 등 스타일 선언) | 버튼 스케일, 뱃지 강조 |
+| 마운트/언마운트/재배치 전환 | Reanimated `entering`/`exiting`/`layout` | 리스트 아이템 추가/삭제 |
+| 제스처 연동 60fps | worklet (`useSharedValue` + `useAnimatedStyle`) | 스와이프 삭제, 바텀시트 드래그 |
 | 제스처 인식 | `react-native-gesture-handler` | 핀치, 팬, 롱프레스 |
-| 간단한 Animated.View 전환 | `Animated.timing / spring` | 버튼 스케일, 뱃지 펄스 |
 
-### LayoutAnimation (가장 간단)
-
-```typescript
-import { LayoutAnimation, UIManager, Platform } from 'react-native';
-
-// Android에서는 수동 활성화 필요
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-function ItemList() {
-  const [items, setItems] = useState<Item[]>([]);
-
-  const addItem = (item: Item) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setItems(prev => [item, ...prev]);
-  };
-
-  const removeItem = (id: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setItems(prev => prev.filter(i => i.id !== id));
-  };
-
-  return (/* ... */);
-}
-```
-
-### Reanimated Worklet (고급)
+### entering/exiting (마운트 전환 — 가장 간단)
 
 ```typescript
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
-  interpolate,
-  Extrapolation,
-  runOnJS,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
-function AnimatedCard({ onDismiss }: { onDismiss: () => void }) {
-  const translateX = useSharedValue(0);
-  const opacity = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-    opacity: opacity.value,
-  }));
-
-  const dismiss = () => {
-    translateX.value = withTiming(-300, { duration: 200 });
-    opacity.value = withTiming(0, { duration: 200 }, (finished) => {
-      if (finished) {
-        runOnJS(onDismiss)(); // UI 스레드 -> JS 스레드 전환
-      }
-    });
-  };
-
-  return (
-    <Animated.View style={animatedStyle}>
-      {/* card content */}
-    </Animated.View>
-  );
-}
+// 리스트 아이템 추가/삭제 전환 — LayoutAnimation 대체
+<Animated.View
+  entering={FadeIn.duration(200)}
+  exiting={FadeOut.duration(150)}
+  layout={LinearTransition}
+>
+  <ItemCard item={item} />
+</Animated.View>
 ```
 
-### Gesture Handler + Reanimated (스와이프 삭제)
+### Gesture Handler + Reanimated worklet (스와이프 삭제)
 
 ```typescript
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -1378,7 +1143,7 @@ function SwipeableItem({ onDelete }: { onDelete: () => void }) {
     .onEnd(() => {
       if (translateX.value < SWIPE_THRESHOLD) {
         translateX.value = withTiming(-300, {}, () => {
-          runOnJS(onDelete)();
+          runOnJS(onDelete)(); // UI 스레드 → JS 스레드 전환 — worklet에서 JS 함수 직접 호출 금지
         });
       } else {
         translateX.value = withTiming(0); // 원래 위치로 복원
@@ -1401,27 +1166,35 @@ function SwipeableItem({ onDelete }: { onDelete: () => void }) {
 
 ### 애니메이션 규칙
 - 애니메이션 duration: 150~300ms (짧아야 빠른 느낌)
-- `useNativeDriver: true` 가능하면 항상 사용 (transform, opacity만 지원)
-- Reanimated worklet에서 `console.log` 금지 (크래시) -> `runOnJS`로 감싸기
+- worklet 안에서 일반 JS 함수 직접 호출 금지 (런타임 크래시) -> `runOnJS(fn)(args)`로 감싸기
+- worklet은 생성 시점의 클로저를 **캡처(직렬화)** 한다 — 바깥 변수의 이후 변경은 반영되지 않음. 변하는 값은 `useSharedValue`로 전달 (실전 함정 참조)
+- 레거시 RN `Animated` 유지보수 시에만: `useNativeDriver: true` (transform/opacity 한정)
 - 웹에서 Reanimated/GestureHandler 호환성 확인 필수
 
 ---
 
-## 15. 키보드 처리
+## 16. 키보드 처리
 
 ### KeyboardAvoidingView (iOS/Android 차이)
 
 ```typescript
 import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // 폼 화면의 기본 구조
 export default function FormScreen() {
+  // KeyboardAvoidingView는 "화면 최상단"부터 계산한다 — 위에 헤더가 있으면
+  // 그 높이를 keyboardVerticalOffset으로 알려줘야 iOS에서 입력창이 가려지지 않는다.
+  // 커스텀 헤더(headerShown: false + 자체 헤더)면 자기가 아는 높이, 네이티브 헤더면 onLayout 실측.
+  const insets = useSafeAreaInsets();
+  const headerOffset = insets.top + APP_HEADER_HEIGHT; // 임의 매직 넘버 금지 — 실제 헤더 구성에서 도출
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        keyboardVerticalOffset={headerOffset}
       >
         <ScrollView
           contentContainerStyle={{ padding: 16 }}
@@ -1439,45 +1212,12 @@ export default function FormScreen() {
 }
 ```
 
-### 키보드 상태 감지
+### 키보드 상태 감지 / 닫기
+
+- 상태 감지: `Keyboard.addListener` — iOS는 `keyboardWillShow/Hide`, Android는 `keyboardDidShow/Hide` (플랫폼별 이벤트명이 다름). 구독은 cleanup에서 반드시 `remove()`
+- 화면 탭으로 닫기: `TouchableWithoutFeedback onPress={Keyboard.dismiss}` 래퍼 (`accessible={false}`)
 
 ```typescript
-import { Keyboard, Platform } from 'react-native';
-
-function useKeyboardVisible() {
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  return isKeyboardVisible;
-}
-```
-
-### 키보드 닫기
-
-```typescript
-import { Keyboard, TouchableWithoutFeedback } from 'react-native';
-
-// 화면 아무 곳 탭 시 키보드 닫기
-function DismissKeyboardView({ children }: PropsWithChildren) {
-  return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={{ flex: 1 }}>{children}</View>
-    </TouchableWithoutFeedback>
-  );
-}
-
 // TextInput에서 다음 입력으로 포커스 이동
 const descriptionRef = useRef<TextInput>(null);
 
@@ -1497,13 +1237,17 @@ const descriptionRef = useRef<TextInput>(null);
 ### 키보드 처리 규칙
 - 모든 폼 화면에 `KeyboardAvoidingView` 필수
 - `behavior`: iOS는 `'padding'`, Android는 `'height'`
+- **헤더가 있는 화면**: `keyboardVerticalOffset`에 실제 헤더 높이(자체 헤더 상수 또는 onLayout 실측) 전달 — 누락 시 iOS에서 입력창이 헤더 높이만큼 가려짐 (실전 함정 참조)
 - `keyboardShouldPersistTaps="handled"` — 키보드 열린 상태에서 버튼 탭 가능
 - 다중 입력 폼: `returnKeyType` + `onSubmitEditing`으로 포커스 연결
 - 키보드 위 고정 버튼: `position: 'absolute'` + keyboard height offset
 
 ---
 
-## 16. 리스트 최적화
+## 17. 리스트 최적화 (FlashList v2)
+
+> **FlashList v2는 New Architecture 전용**이며 아이템 높이를 자동 측정한다 —
+> v1의 `estimatedItemSize`는 **불필요** (v1 문서/예제 복사 금지).
 
 ```typescript
 import { FlashList } from '@shopify/flash-list';
@@ -1511,7 +1255,6 @@ import { FlashList } from '@shopify/flash-list';
 <FlashList
   data={items}
   renderItem={({ item }) => <ItemCard item={item} />}
-  estimatedItemSize={80}           // 필수: 대략적 아이템 높이
   keyExtractor={(item) => item.id} // 고유 키 (index 금지)
   ItemSeparatorComponent={() => <View className="h-2" />}
   ListEmptyComponent={<EmptyView message="No items" />}
@@ -1523,28 +1266,11 @@ import { FlashList } from '@shopify/flash-list';
 />
 ```
 
-### 리스트 아이템 memo
+### 리스트 아이템은 별도 컴포넌트로
 
-```typescript
-// 반드시 memo — 리스트 스크롤 성능의 핵심
-const ItemCard = React.memo(function ItemCard({ item, onPress }: ItemCardProps) {
-  const handlePress = useCallback(() => {
-    onPress(item.id);
-  }, [item.id, onPress]);
-
-  return (
-    <Pressable onPress={handlePress} className="bg-white rounded-xl p-4 border border-gray-200">
-      <Text className="text-base font-bold">{item.title}</Text>
-    </Pressable>
-  );
-});
-
-// 커스텀 비교 함수 (선택 — 복잡한 객체에서 특정 필드만 비교)
-const ItemCard = React.memo(
-  function ItemCard({ item, onPress }: ItemCardProps) { /* ... */ },
-  (prev, next) => prev.item.id === next.item.id && prev.item.updatedAt === next.item.updatedAt,
-);
-```
+- 아이템을 **별도 컴포넌트로 분리**하는 것은 여전히 필수 — 렌더 단위 격리가 컴파일러 최적화의 경계가 된다
+- `React.memo` 수동 래핑은 불필요 (React Compiler가 처리 — "훅 규칙" 참조). 컴파일러 비활성 레거시에서만 측정 후 적용
+- `renderItem`에 인라인으로 JSX 수십 줄 작성 금지 — 분리된 컴포넌트 호출만
 
 ### 무한 스크롤 (react-query + FlashList)
 
@@ -1562,16 +1288,12 @@ function useInfiniteItems() {
 function ItemListScreen() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteItems();
 
-  const items = useMemo(
-    () => data?.pages.flatMap(page => page) ?? [],
-    [data],
-  );
+  const items = data?.pages.flatMap(page => page) ?? []; // 파생 값 — 렌더 중 계산 (컴파일러 최적화)
 
   return (
     <FlashList
       data={items}
       renderItem={({ item }) => <ItemCard item={item} />}
-      estimatedItemSize={80}
       keyExtractor={(item) => item.id}
       onEndReached={() => {
         if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -1586,7 +1308,7 @@ function ItemListScreen() {
 ### 리스트 규칙
 
 - 10개 이상: `FlatList` 또는 `FlashList` 필수 (`ScrollView` + `.map()` 금지)
-- 리스트 아이템: `React.memo` 적용 필수
+- 리스트 아이템: 별도 컴포넌트로 분리 (memo 수동 래핑은 컴파일러 위임)
 - `keyExtractor`: 고유 ID 사용 (index 사용 금지 — 순서 변경 시 버그)
 - 이미지 리스트: `expo-image`의 캐싱 + `recyclingKey` 활용
 - 섹션 리스트: `SectionList` 또는 FlashList 섹션 지원 활용
@@ -1594,50 +1316,56 @@ function ItemListScreen() {
 
 ---
 
-## 17. 안티패턴 (하지 말 것)
+## 18. 안티패턴 (하지 말 것)
 
 ### React Native 일반
 
-| 안티패턴 | 이유 | 대안 |
-|---------|------|------|
-| `ScrollView` + `.map()` (긴 리스트) | 모든 아이템 한번에 렌더 -> 메모리 폭발 | `FlatList` / `FlashList` |
-| 인라인 `style={{}}` 객체 | 매 렌더 새 객체 -> memo 무력화 | `StyleSheet.create` / NativeWind |
-| 인라인 `onPress={() => {}}` | 매 렌더 새 함수 -> memo 무력화 | `useCallback` + 별도 핸들러 |
-| `useEffect`로 데이터 fetch | 로딩/에러/캐시 직접 관리 -> 버그 | `@tanstack/react-query` |
-| `Image` (RN 기본) | 캐싱 없음, 성능 나쁨 | `expo-image` |
-| `TouchableOpacity` | deprecated 추세 | `Pressable` |
-| `Dimensions.get()` 직접 사용 | 회전/리사이즈 미대응 | `useWindowDimensions` |
-| `AsyncStorage` 대용량/민감 데이터 | 느림, 암호화 안 됨 | MMKV / `expo-secure-store` |
-| 화면 컴포넌트에 비즈니스 로직 | 테스트 어렵고 재사용 불가 | 커스텀 훅으로 분리 |
-| Context 남용 (앱 전체 상태) | 불필요한 리렌더 전파 | zustand / react-query |
-| `Alert.alert()` (웹 포함 앱) | 웹에서 작동 안 함 | 크로스플랫폼 다이얼로그 |
-| `contentContainerClassName` | 웹에서 레이아웃 깨짐 | `contentContainerStyle` |
-| `window.location` 직접 접근 | 네이티브에서 크래시 | `Platform.OS` 체크 후 접근 |
-| zustand에 서버 데이터 복사 | 캐시 불일치, 이중 관리 | react-query에서만 관리 |
+| 안티패턴 | 실패 결과 | 대안 |
+|---------|----------|------|
+| `ScrollView` + `.map()` (긴 리스트) | 수백 아이템 전부 마운트 → 진입 수 초 프리즈 + 메모리 폭증 → 저사양 기기 OOM 종료 | `FlashList` / `FlatList` |
+| `@react-navigation/*` 직접 import (SDK 56+) | Expo Router 내장 포크와 이중 인스턴스 → 네비게이션 상태 파손, SDK 업그레이드마다 파손 | expo-router가 export하는 API만 |
+| `newArchEnabled: false` 옵트아웃 시도 | 0.82+에서 설정 무시 — 문제를 해결한 척만 하고 비호환은 그대로 | 비호환 라이브러리 교체/업데이트 |
+| 수동 `useMemo`/`useCallback`/`React.memo` 습관 적용 (SDK 54+) | React Compiler와 중복 — 의존성 배열 실수 시 stale closure 버그만 추가 | 컴파일러에 위임 (훅 규칙 참조) |
+| `SafeAreaView` (RN 코어) | 0.81 deprecated + iOS 전용/불완전 → Android 노치·제스처 영역 침범 | `react-native-safe-area-context` |
+| 인라인 `style={{}}` 객체 | 매 렌더 새 객체 → 자식 전파 리렌더 (인라인 생성 자체는 컴파일러도 제거 못 함) | `StyleSheet.create` / NativeWind |
+| `useEffect`로 데이터 fetch | 로딩/에러/캐시/경합을 수동 관리 → 빠른 화면 전환 시 낡은 응답이 최신 데이터를 덮음 | `@tanstack/react-query` |
+| `Image` (RN 기본) | 캐싱 없음 → 리스트 스크롤마다 재다운로드, 깜빡임 + 데이터 낭비 | `expo-image` |
+| `TouchableOpacity` | 유지보수 모드 — hover/focus 등 신규 인터랙션 미지원, 웹 접근성 결손 | `Pressable` |
+| `Dimensions.get()` 직접 사용 | 회전/창 리사이즈/폴더블 전개 미반영 → 태블릿에서 레이아웃 파손 | `useWindowDimensions` |
+| `AsyncStorage` 신규 도입 | 느린 비동기 왕복 + 무암호화 → 토큰 저장 시 루팅 기기에서 평문 노출 | mmkv / secure-store / expo-sqlite kv-store |
+| 화면 컴포넌트에 비즈니스 로직 | 테스트 불가 + 유사 화면 복제 시 로직 중복 → 한쪽만 수정되는 불일치 버그 | 커스텀 훅으로 분리 |
+| Context로 앱 전체 상태 관리 | 값 하나 변경에 Provider 하위 전체 리렌더 → 타이핑마다 화면 전체 갱신 | zustand / react-query |
+| `Alert.alert()` (웹 포함 앱) | 웹에서 no-op — 확인창 없이 삭제 등 파괴적 동작이 그냥 실행됨 | 크로스플랫폼 confirm 헬퍼 |
+| `contentContainerClassName` | 웹에서 스타일 미적용 → 중앙 정렬/패딩 소실로 레이아웃 붕괴 | `contentContainerStyle` |
+| `window.location` 직접 접근 | 네이티브에서 ReferenceError 크래시 | `Platform.OS === 'web'` 체크 후 접근 |
+| zustand에 서버 데이터 복사 | 캐시 이중화 → 무효화 누락 시 낡은 데이터가 화면에 잔존 | react-query 단일 소스 |
 
 ### AI가 흔히 생성하는 실수
 
-| 실수 | 수정 방법 |
-|------|----------|
-| `<View>` 안에 텍스트 직접 넣기 | 반드시 `<Text>` 감싸기 (RN 규칙) |
-| 웹 HTML 태그 (`<div>`, `<span>`) | `<View>`, `<Text>` 사용 |
-| CSS 속성 (`background-color`) | camelCase (`backgroundColor`) 또는 NativeWind |
-| `onClick` 사용 | `onPress` 사용 |
-| `className` (NativeWind 미설정) | NativeWind 설정 확인 필요 |
-| 웹 전용 API (`window`, `document`) | `Platform.OS === 'web'` 체크 후 접근 |
-| `useEffect(async () => {})` | 내부에 별도 async 함수 정의 후 호출 |
-| FlatList `key={index}` | 고유 ID 사용 |
-| `console.log` 프로덕션에 남기기 | 제거 또는 로거 사용 |
-| `npm install` Expo 패키지 | `npx expo install` 사용 (호환 버전) |
-| useEffect cleanup 누락 | 구독/리스너는 반드시 return으로 정리 |
-| KeyboardAvoidingView 누락 (폼) | 키보드가 입력 필드를 가림 |
-| `Alert.alert` 웹에서 사용 | `Platform.OS` 분기 또는 커스텀 모달 |
-| `Modal` `presentationStyle` 웹에서 | 웹 미지원, `Platform.select` 사용 |
-| setState after unmount | isMounted 패턴 또는 AbortController |
+| 실수 | 실패 결과 | 수정 방법 |
+|------|----------|----------|
+| `<View>` 안에 텍스트 직접 넣기 | "Text strings must be rendered within a \<Text\>" 즉시 크래시 | 반드시 `<Text>` 감싸기 |
+| 웹 HTML 태그 (`<div>`, `<span>`) | 네이티브에 해당 컴포넌트 없음 → 렌더 크래시 | `<View>`, `<Text>` |
+| `onClick` 사용 | RN에 없는 prop — 에러 없이 조용히 무시되어 버튼 무반응 | `onPress` |
+| CSS 속성 (`background-color`) | 스타일 무시/경고 — 화면은 뜨지만 디자인 미적용 | camelCase 또는 NativeWind |
+| `shouldShowAlert` (구 예제 복사) | SDK 53+ deprecated — iOS 포그라운드 알림이 표시되지 않음 | `shouldShowBanner` + `shouldShowList` |
+| FlashList에 `estimatedItemSize` (v1 예제 복사) | v2에서 무의미한 prop — v1 기준 낡은 코드 신호 | v2는 자동 측정, prop 제거 |
+| `npm install`로 Expo 패키지 설치 | SDK 비호환 버전 설치 → 빌드 실패 또는 런타임 네이티브 크래시 | `npx expo install` |
+| `useEffect(async () => {})` | effect가 Promise 반환 → cleanup 무시 (구독 해제 누락) | 내부에 async 함수 정의 후 호출 |
+| FlatList/FlashList `key={index}` | 삽입/삭제 시 상태 꼬임 — 입력값이 엉뚱한 행에 남음 | 고유 ID |
+| useEffect cleanup 누락 | 리스너 누적 → 이벤트 1회에 핸들러 N회 실행, 메모리 릭 | 구독은 반드시 return으로 해제 |
+| setState after unmount | 경고 + 리소스 릭 신호 — fetch 완료가 죽은 화면 갱신 시도 | isMounted 패턴 / AbortController |
+| 웹 전용 API (`window`, `document`) | 네이티브 크래시 | `Platform.OS === 'web'` 체크 |
+| KeyboardAvoidingView 누락 (폼) | 키보드가 입력창 가림 — 사용자가 입력 내용을 못 봄 | KeyboardAvoidingView + 헤더 오프셋 |
+| `console.log` 프로덕션 잔존 | 릴리즈 성능 저하 + 민감 데이터 로그 노출 | 제거 플러그인 또는 로거 |
+
+### 실전에서 발견된 지뢰
+
+> 4요소(증상/원인/해결/오답) 형식으로 **"실전 함정 & 지뢰" 섹션에 누적**한다 — 여기 중복 기재하지 않는다.
 
 ---
 
-## 18. Null/빈 상태 처리
+## 19. Null/빈 상태 처리
 
 - 모든 화면에 **4가지 상태**를 처리한다: 로딩 / 에러 / 빈 데이터 / 정상
 - 빈 상태에 의미 있는 메시지 + CTA(Call to Action) 버튼 제공
@@ -1659,27 +1387,15 @@ function useAsyncState<T>(queryResult: UseQueryResult<T>) {
   return { status: 'success' as const, data };
 }
 
-// 사용
+// 사용 — discriminated union이라 각 case에서 data/error가 자동으로 좁혀짐
 function ItemListScreen() {
-  const query = useItemList();
-  const state = useAsyncState(query);
+  const state = useAsyncState(useItemList());
 
   switch (state.status) {
-    case 'loading':
-      return <SkeletonList count={5} />;
-    case 'error':
-      return <ErrorView error={state.error} onRetry={state.refetch} />;
-    case 'empty':
-      return (
-        <EmptyView
-          icon="inbox"
-          message="No items yet"
-          actionLabel="Create first item"
-          onAction={() => router.push('/item/create')}
-        />
-      );
-    case 'success':
-      return <ItemList items={state.data} />;
+    case 'loading': return <SkeletonList count={5} />;
+    case 'error':   return <ErrorView error={state.error} onRetry={state.refetch} />;
+    case 'empty':   return <EmptyView message="No items yet" actionLabel="Create first item" onAction={goCreate} />;
+    case 'success': return <ItemList items={state.data} />;
   }
 }
 ```
@@ -1687,60 +1403,32 @@ function ItemListScreen() {
 ### 공통 빈 상태 컴포넌트
 
 ```typescript
+// 아이콘 + 메시지 + (선택) CTA 버튼 — 빈 상태에는 "다음 행동"을 항상 제시
 interface EmptyViewProps {
   icon?: string;
   message: string;
   actionLabel?: string;
   onAction?: () => void;
 }
-
-function EmptyView({ icon = 'inbox', message, actionLabel, onAction }: EmptyViewProps) {
-  return (
-    <View className="flex-1 items-center justify-center py-16">
-      <IconSymbol name={icon} size={48} className="text-gray-300 mb-4" />
-      <Text className="text-gray-500 text-base mb-4">{message}</Text>
-      {actionLabel && onAction && (
-        <Pressable
-          onPress={onAction}
-          className="bg-primary px-6 py-3 rounded-full"
-        >
-          <Text className="text-white font-medium">{actionLabel}</Text>
-        </Pressable>
-      )}
-    </View>
-  );
-}
+// 구현: 중앙 정렬 View + 아이콘(48) + gray 메시지 + actionLabel && onAction 조건부 버튼
 ```
 
-### 옵셔널 값 안전 처리
+### JSX `&&` 렌더링의 0/NaN 함정 (RN 특화)
+
+> 옵셔널 체이닝 / `??` / 타입 가드 등 일반 null 처리 → `typescript.md` 참조.
 
 ```typescript
-// Good: nullish coalescing + optional chaining
-const displayName = user?.profile?.name ?? 'Guest';
-const itemCount = items?.length ?? 0;
+// ❌ Bad: falsy 숫자가 그대로 렌더 — RN에서는 <Text> 밖 문자열이라 크래시까지 감
+{count && <Badge text={count} />}  // count=0 → "0" 렌더 (웹) / Text 미포장 크래시 (네이티브)
 
-// Good: early return으로 null 체크
-function ItemDetail({ itemId }: { itemId: string }) {
-  const { data: item, isLoading } = useItem(itemId);
-
-  if (isLoading) return <LoadingSkeleton />;
-  if (!item) return <ErrorView message="Item not found" />;
-
-  // 여기부터 item은 non-null
-  return <Text>{item.title}</Text>;
-}
-
-// Bad: JSX 내 && 연산자로 0 표시 버그
-{count && <Badge text={count} />}  // count=0 이면 "0" 텍스트 렌더!
-
-// Good: 명시적 비교
+// ✅ Good: 명시적 boolean 비교
 {count > 0 && <Badge text={count} />}
 {count != null && <Badge text={count} />}
 ```
 
 ---
 
-## 19. 비동기 처리
+## 20. 비동기 처리
 
 > TypeScript 기본 비동기 규칙(`typescript.md`)을 따르되, React Native 특화:
 
@@ -1765,22 +1453,14 @@ useEffect(() => {
 
 ### 병렬 실행
 
+> `Promise.all`/`allSettled`/타임아웃 등 일반 비동기 패턴 → `typescript.md` 참조. RN에서는 쿼리 병렬화:
+
 ```typescript
-// 여러 쿼리 병렬 실행
+// 여러 쿼리 병렬 실행 — useQuery는 각각 독립적으로 병렬 fetch
 const itemQuery = useQuery({ queryKey: ['item', id], queryFn: () => fetchItem(id) });
 const reviewsQuery = useQuery({ queryKey: ['reviews', id], queryFn: () => fetchReviews(id) });
 
 const isLoading = itemQuery.isLoading || reviewsQuery.isLoading;
-
-// Promise.all로 병렬 (훅 외부에서)
-async function loadInitialData(userId: string) {
-  const [profile, settings, notifications] = await Promise.all([
-    fetchProfile(userId),
-    fetchSettings(userId),
-    fetchNotifications(userId),
-  ]);
-  return { profile, settings, notifications };
-}
 ```
 
 ### 요청 취소 (AbortController)
@@ -1800,36 +1480,8 @@ async function searchItems(keyword: string, signal?: AbortSignal): Promise<Item[
   return response.json();
 }
 
-// 수동 취소
-const abortController = useRef(new AbortController());
-
-useEffect(() => {
-  return () => abortController.current.abort(); // 컴포넌트 unmount 시 취소
-}, []);
-```
-
-### 타임아웃 패턴
-
-```typescript
-async function fetchWithTimeout<T>(
-  fn: (signal: AbortSignal) => Promise<T>,
-  timeoutMs: number = 10000,
-): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const result = await fn(controller.signal);
-    return result;
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new AppError('REQUEST_TIMEOUT', 'Request timed out');
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+// 수동 취소가 필요하면 useRef(new AbortController()) + unmount cleanup에서 abort()
+// (AbortController 일반 패턴 → typescript.md 참조)
 ```
 
 ### 디바운스 검색
@@ -1846,121 +1498,51 @@ function useDebounce<T>(value: T, delay: number = 300): T {
   return debouncedValue;
 }
 
-// 사용
-function SearchScreen() {
-  const [keyword, setKeyword] = useState('');
-  const debouncedKeyword = useDebounce(keyword, 300);
-
-  const { data: results } = useQuery({
-    queryKey: ['search', debouncedKeyword],
-    queryFn: () => searchItems(debouncedKeyword),
-    enabled: debouncedKeyword.length >= 2,
-  });
-
-  return (
-    <TextInput value={keyword} onChangeText={setKeyword} placeholder="Search..." />
-  );
-}
+// 사용: 검색어를 디바운스한 값으로 useQuery — queryKey: ['search', debouncedKeyword],
+//       enabled: debouncedKeyword.length >= 2 (짧은 입력엔 요청 안 나감)
 ```
 
 ---
 
-## 20. 에러/예외 처리
+## 21. 에러/예외 처리
 
 > TypeScript 기본 에러 처리(`typescript.md`)를 따르되, React Native 특화:
 
-### 커스텀 에러 클래스
+### 커스텀 에러 + 사용자 메시지 매핑
+
+> `AppError` 기본 클래스, catch-unknown 패턴, 경계에서만 catch 원칙 → `typescript.md` 참조.
+> RN 특화: HTTP 상태를 아는 `NetworkError` + 화면 표시용 메시지 매핑.
 
 ```typescript
-// 앱 전역 에러 기본 클래스
-class AppError extends Error {
-  constructor(
-    public readonly code: string,
-    public readonly userMessage: string, // 사용자에게 표시할 메시지
-    message?: string,                     // 개발자용 디버그 메시지
-  ) {
-    super(message ?? userMessage);
-    this.name = 'AppError';
-  }
-}
-
-// 네트워크 에러
 class NetworkError extends AppError {
-  constructor(
-    public readonly statusCode: number,
-    userMessage: string,
-    message?: string,
-  ) {
-    super('NETWORK_ERROR', userMessage, message);
+  constructor(public readonly statusCode: number, userMessage: string, message?: string) {
+    super(message ?? userMessage, 'NETWORK_ERROR', userMessage, statusCode);
     this.name = 'NetworkError';
   }
-
-  get isUnauthorized(): boolean {
-    return this.statusCode === 401;
-  }
-
-  get isNotFound(): boolean {
-    return this.statusCode === 404;
-  }
-
-  get isServerError(): boolean {
-    return this.statusCode >= 500;
-  }
+  get isUnauthorized() { return this.statusCode === 401; }
+  get isNotFound() { return this.statusCode === 404; }
+  get isServerError() { return this.statusCode >= 500; }
 }
 
-// 검증 에러
-class ValidationError extends AppError {
-  constructor(
-    public readonly field: string,
-    userMessage: string,
-  ) {
-    super('VALIDATION_ERROR', userMessage);
-    this.name = 'ValidationError';
-  }
-}
-```
-
-### 에러 분류 및 사용자 메시지 매핑
-
-```typescript
 function getErrorMessage(error: unknown): string {
   if (error instanceof NetworkError) {
     if (error.isUnauthorized) return 'Login session has expired. Please log in again.';
     if (error.isNotFound) return 'The requested content does not exist.';
     if (error.isServerError) return 'A server error occurred. Please try again later.';
-    return error.userMessage;
   }
-
-  if (error instanceof ValidationError) {
-    return error.userMessage;
-  }
-
-  if (error instanceof AppError) {
-    return error.userMessage;
-  }
-
-  // 알 수 없는 에러 -> 일반 메시지 (내부 에러 노출 금지)
-  return 'An unexpected error occurred. Please try again.';
+  if (error instanceof AppError) return error.userMessage;
+  return 'An unexpected error occurred. Please try again.'; // 내부 에러 노출 금지
 }
 ```
 
 ### Error Boundary
 
 ```typescript
-import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 
-interface ErrorBoundaryProps {
-  children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
-}
+interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<{ children: ReactNode; fallback?: ReactNode }, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -1968,59 +1550,42 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    this.props.onError?.(error, errorInfo);
-    // Sentry, Crashlytics 등에 보고
-    // reportCrash(error, errorInfo);
+    reportCrash(error, errorInfo); // Sentry/Crashlytics 등에 보고 — 삼키지 않는다
   }
 
-  private reset = () => {
-    this.setState({ hasError: false, error: null });
-  };
+  private reset = () => this.setState({ hasError: false, error: null });
 
   render() {
     if (this.state.hasError) {
-      return this.props.fallback ?? (
-        <ErrorFallback error={this.state.error} onRetry={this.reset} />
-      );
+      return this.props.fallback ?? <ErrorFallback error={this.state.error} onRetry={this.reset} />;
     }
     return this.props.children;
   }
 }
 
-// 사용: 화면 단위 ErrorBoundary 래핑
-// app/(tabs)/_layout.tsx
-<ErrorBoundary>
-  <Tabs>...</Tabs>
-</ErrorBoundary>
+// 사용: 화면/레이아웃 단위 래핑 — app/(tabs)/_layout.tsx 에서 <ErrorBoundary><Tabs /></ErrorBoundary>
 ```
 
 ### API 에러 처리 (react-query + fetch)
 
 ```typescript
-// fetch 래퍼: HTTP 에러를 NetworkError로 변환
+// fetch 래퍼: HTTP 에러를 NetworkError로 변환 (호출부는 instanceof 분기만)
 async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
   try {
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
     });
-
     if (!response.ok) {
       const body = await response.json().catch(() => null);
-      throw new NetworkError(
-        response.status,
-        body?.message ?? `Request failed (${response.status})`,
-      );
+      throw new NetworkError(response.status, body?.message ?? `Request failed (${response.status})`);
     }
-
     return response.json();
   } catch (error) {
     if (error instanceof NetworkError) throw error;
     if (error instanceof TypeError) {
-      throw new AppError('NETWORK_OFFLINE', 'No internet connection.');
+      // fetch의 네트워크 단절은 TypeError로 옴 — 오프라인 에러로 변환
+      throw new AppError('fetch failed', 'NETWORK_OFFLINE', 'No internet connection.');
     }
     throw error;
   }
@@ -2066,7 +1631,7 @@ const { data } = useQuery({
 
 ---
 
-## 21. 앱 생명주기 (AppState)
+## 22. 앱 생명주기 (AppState)
 
 ```typescript
 import { AppState, type AppStateStatus } from 'react-native';
@@ -2096,15 +1661,15 @@ function useAppState(onChange?: (status: AppStateStatus) => void) {
 ### 포그라운드 복귀 시 토큰 재검증
 
 ```typescript
+// 루트 레이아웃에서 useSessionRevalidation() 호출
 function useSessionRevalidation() {
   const { session, clearSession } = useAppStore(
     useShallow((s) => ({ session: s.session, clearSession: s.clearSession })),
   );
   const router = useRouter();
 
-  const handleAppActive = useCallback(async () => {
+  useAppState(async () => {
     if (!session) return;
-
     try {
       const isValid = await validateToken(session.token);
       if (!isValid) {
@@ -2114,41 +1679,15 @@ function useSessionRevalidation() {
     } catch {
       // 네트워크 실패 -> 무시 (오프라인 허용)
     }
-  }, [session, clearSession, router]);
-
-  useAppState(handleAppActive);
-}
-
-// 루트 레이아웃에서 사용
-export default function RootLayout() {
-  useSessionRevalidation();
-  return <Stack />;
+  });
 }
 ```
 
 ### 백그라운드 전환 시 리소스 정리
 
-```typescript
-function useBackgroundCleanup() {
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'background') {
-        // 실시간 구독 일시 중단
-        realtimeClient.disconnect();
-        // 진행 중인 업로드 일시 중지
-        uploadManager.pauseAll();
-      }
-      if (state === 'active') {
-        // 포그라운드 복귀 시 재연결
-        realtimeClient.connect();
-        uploadManager.resumeAll();
-      }
-    });
-
-    return () => subscription.remove();
-  }, []);
-}
-```
+- `background` 진입: 실시간 구독 disconnect, 진행 중 업로드 pause — 위 `useAppState` 훅에서 상태 분기로 처리
+- `active` 복귀: 재연결/재개 + 토큰 재검증 (위 패턴)
+- 백그라운드에서 소켓/타이머를 살려두면 OS가 앱을 강제 종료하거나 배터리 이슈로 리젝 사유가 된다
 
 ### react-query + AppState 자동 리프레시
 
@@ -2168,7 +1707,7 @@ function useAppStateRefetch() {
 
 ---
 
-## 22. 보안
+## 23. 보안
 
 > TypeScript 기본 보안(`typescript.md`)을 따르되, React Native 특화:
 
@@ -2197,7 +1736,7 @@ await AsyncStorage.setItem('token', token); // 보안 취약!
 ### 딥링크 검증
 
 ```typescript
-// 외부에서 들어오는 딥링크 파라미터 반드시 검증
+// 외부에서 들어오는 딥링크 파라미터는 반드시 스키마 검증 — 임의 URL로 내부 화면 조작 방지
 import { useURL } from 'expo-linking';
 import { z } from 'zod';
 
@@ -2212,18 +1751,9 @@ function useDeepLinkHandler() {
 
   useEffect(() => {
     if (!url) return;
-
-    try {
-      const params = parseURLParams(url);
-      const validated = deepLinkSchema.parse(params);
-
-      if (validated.itemId) {
-        router.push(`/item/${validated.itemId}`);
-      }
-    } catch {
-      // 잘못된 딥링크 -> 무시 (에러 로깅만)
-      console.warn('Invalid deep link:', url);
-    }
+    const validated = deepLinkSchema.safeParse(parseURLParams(url));
+    if (!validated.success) return console.warn('Invalid deep link:', url); // 무시 + 로깅만
+    if (validated.data.itemId) router.push(`/item/${validated.data.itemId}`);
   }, [url]);
 }
 ```
@@ -2253,8 +1783,7 @@ import { WebView } from 'react-native-webview';
 ### 토큰 리프레시 패턴
 
 ```typescript
-// 인터셉터: 401 시 토큰 리프레시 후 재시도
-let isRefreshing = false;
+// 401 시 토큰 리프레시 후 1회 재시도 — 핵심은 "동시 401 다발 시 리프레시 1회만" (모듈 레벨 공유 Promise)
 let refreshPromise: Promise<string> | null = null;
 
 async function authenticatedFetch(url: string, options?: RequestInit): Promise<Response> {
@@ -2263,32 +1792,22 @@ async function authenticatedFetch(url: string, options?: RequestInit): Promise<R
     ...options,
     headers: { ...options?.headers, Authorization: `Bearer ${token}` },
   });
+  if (response.status !== 401) return response;
 
-  if (response.status === 401) {
-    // 리프레시 중복 방지
-    if (!isRefreshing) {
-      isRefreshing = true;
-      refreshPromise = refreshToken();
-    }
-
-    try {
-      const newToken = await refreshPromise;
-      await saveToken(newToken);
-      // 새 토큰으로 재시도
-      return fetch(url, {
-        ...options,
-        headers: { ...options?.headers, Authorization: `Bearer ${newToken}` },
-      });
-    } catch {
-      await deleteToken();
-      throw new NetworkError(401, 'Session expired');
-    } finally {
-      isRefreshing = false;
-      refreshPromise = null;
-    }
+  refreshPromise ??= refreshToken(); // 이미 진행 중이면 같은 Promise를 공유 (중복 리프레시 방지)
+  try {
+    const newToken = await refreshPromise;
+    await saveToken(newToken);
+    return fetch(url, {
+      ...options,
+      headers: { ...options?.headers, Authorization: `Bearer ${newToken}` },
+    });
+  } catch {
+    await deleteToken();
+    throw new NetworkError(401, 'Session expired');
+  } finally {
+    refreshPromise = null;
   }
-
-  return response;
 }
 ```
 
@@ -2303,63 +1822,29 @@ async function authenticatedFetch(url: string, options?: RequestInit): Promise<R
 
 ---
 
-## 23. 성능 최적화
+## 24. 성능 최적화
 
-### 렌더링 성능
-
-```typescript
-// 1. React.memo: 리스트 아이템, 자주 리렌더되는 부모의 자식
-const ItemCard = React.memo(function ItemCard({ item }: ItemCardProps) {
-  return <View>...</View>;
-});
-
-// 2. 커스텀 비교 함수 (복잡한 객체에서 특정 필드만 비교)
-const ItemCard = React.memo(
-  function ItemCard({ item }: ItemCardProps) { return <View>...</View>; },
-  (prev, next) => prev.item.id === next.item.id && prev.item.updatedAt === next.item.updatedAt,
-);
-
-// 3. useMemo: 비용이 큰 필터/정렬
-const filteredItems = useMemo(
-  () => items.filter(i => i.status === activeFilter).sort(sortByDate),
-  [items, activeFilter],
-);
-
-// 4. useCallback: memo된 자식에 전달하는 콜백만
-const handleItemPress = useCallback((id: string) => {
-  router.push(`/item/${id}`);
-}, [router]);
-```
-
-### 리렌더 추적 (디버깅용)
+### 렌더링 성능 — React Compiler 시대 (Expo SDK 54+ 기본 활성)
 
 ```typescript
-// 개발 모드에서 리렌더 원인 추적
-function useRenderTracker(componentName: string, props: Record<string, unknown>) {
-  const prevProps = useRef(props);
+// 규칙 1. 수동 useMemo/useCallback/React.memo 지양 — 컴파일러가 자동 메모이제이션
+//   ❌ const sorted = useMemo(() => [...items].sort(byDate), [items]);
+//   ✅ const sorted = [...items].sort(byDate);
 
-  useEffect(() => {
-    const changes: Record<string, { from: unknown; to: unknown }> = {};
+// 규칙 2. Rules of React 준수가 전제 — 위반한 컴포넌트는 컴파일러가 최적화를 건너뜀
+//   (훅은 최상위에서만, 렌더 중 부수효과 금지, props/state 직접 변형 금지)
 
-    for (const key of Object.keys(props)) {
-      if (prevProps.current[key] !== props[key]) {
-        changes[key] = { from: prevProps.current[key], to: props[key] };
-      }
-    }
+// 규칙 3. eslint-plugin-react-compiler 경고 = 그 컴포넌트는 최적화 제외 중
+//   → 메모이제이션을 손으로 추가하는 게 아니라 규칙 위반을 수정한다
 
-    if (Object.keys(changes).length > 0) {
-      console.debug(`[${componentName}] re-render caused by:`, changes);
-    }
-
-    prevProps.current = props;
-  });
-}
-
-// 사용 (개발 모드만)
-if (__DEV__) {
-  useRenderTracker('ItemCard', { item, onPress });
-}
+// 규칙 4. 여전히 사람 몫인 최적화:
+//   - 인라인 style 객체/배열 생성 지양 (StyleSheet.create / NativeWind)
+//   - 리스트 가상화 (FlashList) + 아이템 컴포넌트 분리
+//   - 이미지 리사이즈/캐싱 (expo-image)
+//   - 화면 단위 코드 분할 (lazy import)
 ```
+
+> 레거시(컴파일러 비활성) 프로젝트만: `React.memo`/`useMemo`/`useCallback`을 **Profiler 측정 후** 선별 적용.
 
 ### React Profiler 사용
 
@@ -2403,7 +1888,7 @@ const onRender: ProfilerOnRenderCallback = (id, phase, actualDuration) => {
 
 ---
 
-## 24. 이미지 처리
+## 25. 이미지 처리
 
 ### expo-image 기본 설정
 
@@ -2434,7 +1919,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 async function pickAndCompressImage(): Promise<string | null> {
-  // 1. 권한 확인
+  // 1. 권한 확인 — 거부 케이스 반드시 처리
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== 'granted') {
     showToast('Photo library permission is required');
@@ -2443,56 +1928,28 @@ async function pickAndCompressImage(): Promise<string | null> {
 
   // 2. 이미지 선택
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ['images'],
     allowsEditing: true,
-    aspect: [1, 1],
     quality: 0.8,
   });
-
   if (result.canceled || !result.assets[0]) return null;
 
-  // 3. 리사이즈 + 압축
+  // 3. 리사이즈 + 압축 — 원본(수 MB~4K)을 그대로 업로드하지 않는다
   const manipulated = await ImageManipulator.manipulateAsync(
     result.assets[0].uri,
-    [{ resize: { width: 800 } }], // 최대 800px
+    [{ resize: { width: 800 } }],
     { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
   );
-
   return manipulated.uri;
 }
 
-// 4. 서버 업로드
-async function uploadImage(uri: string, path: string): Promise<string> {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-
-  const { data, error } = await supabase.storage
-    .from('images')
-    .upload(path, blob, { contentType: 'image/jpeg' });
-
-  if (error) throw new AppError('UPLOAD_FAILED', 'Image upload failed');
-  return data.path;
-}
+// 4. 업로드: fetch(uri) → blob() → 스토리지 업로드 (실패 시 AppError로 변환해 전파)
 ```
 
 ### 이미지 캐시 전략
 
-```typescript
-// expo-image는 디스크 캐시를 자동으로 관리
-// 캐시 정책은 Image.prefetch로 제어
-import { Image } from 'expo-image';
-
-// 미리 캐싱 (리스트 진입 전)
-async function prefetchImages(urls: string[]) {
-  await Promise.all(urls.map(url => Image.prefetch(url)));
-}
-
-// 캐시 초기화 (필요 시)
-async function clearImageCache() {
-  await Image.clearDiskCache();
-  await Image.clearMemoryCache();
-}
-```
+- expo-image는 디스크 캐시 자동 관리 — 미리 캐싱은 `Image.prefetch(url)` (리스트 진입 전 `Promise.all`)
+- 캐시 초기화가 필요할 때만 `Image.clearDiskCache()` / `Image.clearMemoryCache()`
 
 ### 이미지 규칙
 - 항상 `expo-image` 사용 (RN 기본 `Image` 사용 금지)
@@ -2505,7 +1962,7 @@ async function clearImageCache() {
 
 ---
 
-## 25. 환경변수 관리
+## 26. 환경변수 관리
 
 ### Expo 환경변수 규칙
 
@@ -2524,34 +1981,22 @@ SUPABASE_SERVICE_ROLE_KEY=secret_xxx               // EXPO_PUBLIC_ 없음 -> 클
 ### 타입 안전한 환경변수 접근
 
 ```typescript
-// src/config/env.ts
+// src/config/env.ts — 앱 기동 시점에 검증해서 누락을 즉시 발견 (런타임 깊은 곳 크래시 방지)
 import { z } from 'zod';
 
 const envSchema = z.object({
   EXPO_PUBLIC_API_URL: z.string().url(),
-  EXPO_PUBLIC_SUPABASE_URL: z.string().url(),
-  EXPO_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+  EXPO_PUBLIC_BACKEND_KEY: z.string().min(1),
 });
 
-function getEnv() {
-  const result = envSchema.safeParse({
-    EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
-    EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-  });
+const result = envSchema.safeParse({
+  EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
+  EXPO_PUBLIC_BACKEND_KEY: process.env.EXPO_PUBLIC_BACKEND_KEY,
+});
+if (!result.success) throw new Error(`Invalid environment variables: ${result.error.message}`);
 
-  if (!result.success) {
-    throw new Error(`Invalid environment variables: ${result.error.message}`);
-  }
-
-  return result.data;
-}
-
-export const env = getEnv();
-
-// 사용
-import { env } from '@/config/env';
-const client = createClient(env.EXPO_PUBLIC_SUPABASE_URL, env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+export const env = result.data;
+// 사용처: import { env } from '@/config/env'; — process.env 직접 접근 금지 (env.ts 한 곳으로)
 ```
 
 ### 환경변수 규칙
@@ -2563,7 +2008,7 @@ const client = createClient(env.EXPO_PUBLIC_SUPABASE_URL, env.EXPO_PUBLIC_SUPABA
 
 ---
 
-## 26. 폰트 & 스플래시
+## 27. 폰트 & 스플래시
 
 ### 폰트 로딩 + 스플래시 스크린 연동
 
@@ -2603,29 +2048,17 @@ export default function RootLayout() {
 
 ---
 
-## 27. StatusBar
+## 28. StatusBar
 
 ```typescript
 import { StatusBar } from 'expo-status-bar';
 
-// 루트 레이아웃에서 전역 설정
+// 루트 레이아웃에서 전역 설정 — 화면별로 바꿀 땐 해당 화면에서 <StatusBar style="light" /> 재선언
 export default function RootLayout() {
   return (
     <>
       <StatusBar style="auto" /> {/* light/dark/auto */}
       <Stack />
-    </>
-  );
-}
-
-// 화면별 StatusBar 스타일 변경
-export default function DarkScreen() {
-  return (
-    <>
-      <StatusBar style="light" />
-      <View className="flex-1 bg-gray-900">
-        {/* dark background content */}
-      </View>
     </>
   );
 }
@@ -2641,16 +2074,19 @@ export default function DarkScreen() {
 
 ---
 
-## 28. 푸시 알림 (expo-notifications)
+## 29. 푸시 알림 (expo-notifications)
 
 ```typescript
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
 // 알림 표시 설정 (포그라운드)
+// 🔴 shouldShowAlert는 SDK 53+ deprecated — iOS 14의 배너/알림센터 분리에 맞춰
+//    shouldShowBanner(화면 상단 배너) + shouldShowList(알림 센터 목록)로 나뉘었다.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -2676,22 +2112,16 @@ async function getPushToken(): Promise<string | null> {
   return token.data;
 }
 
-// 알림 리스너 설정 (루트 레이아웃)
+// 알림 리스너 설정 (루트 레이아웃) — 두 구독 모두 cleanup 필수
 function useNotificationListeners() {
   const router = useRouter();
 
   useEffect(() => {
-    // 포그라운드 알림 수신
-    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
-      // 인앱 알림 처리 (뱃지 업데이트 등)
-    });
-
-    // 알림 탭 -> 화면 이동
+    // 포그라운드 수신 (뱃지 갱신 등) / 알림 탭 → 화면 이동
+    const receivedSub = Notifications.addNotificationReceivedListener(() => {});
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
-      if (data?.itemId && typeof data.itemId === 'string') {
-        router.push(`/item/${data.itemId}`);
-      }
+      if (typeof data?.itemId === 'string') router.push(`/item/${data.itemId}`); // 페이로드도 검증 후 사용
     });
 
     return () => {
@@ -2700,10 +2130,11 @@ function useNotificationListeners() {
     };
   }, [router]);
 }
+```
 
 ---
 
-## 29. 플랫폼 분기
+## 30. 플랫폼 분기
 
 ```typescript
 import { Platform } from 'react-native';
@@ -2751,7 +2182,7 @@ function openExternalLink(url: string) {
 
 ---
 
-## 30. 테스트
+## 31. 테스트
 
 ### 테스트 도구
 
@@ -2801,19 +2232,12 @@ describe('ItemCard', () => {
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// react-query 훅 테스트 래퍼
+// react-query 훅 테스트 래퍼 (retry: false — 테스트에서 재시도 대기 방지)
 function createQueryWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-
-  return function Wrapper({ children }: PropsWithChildren) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    );
-  };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
 }
 
 describe('useItemList', () => {
@@ -2843,56 +2267,14 @@ describe('useItemList', () => {
 
 ```typescript
 // __mocks__/expo-router.ts
-const mockRouter = {
-  push: jest.fn(),
-  replace: jest.fn(),
-  back: jest.fn(),
-  dismiss: jest.fn(),
-};
+const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), dismiss: jest.fn() };
 
 export const useRouter = () => mockRouter;
 export const useLocalSearchParams = jest.fn().mockReturnValue({});
 export const Link = ({ children }: PropsWithChildren) => children;
 export const Redirect = () => null;
 
-// 테스트에서 사용
-import { useRouter } from 'expo-router';
-
-it('navigates to detail on press', () => {
-  render(<ItemCard item={mockItem} />);
-  fireEvent.press(screen.getByText('Test Item'));
-  expect(useRouter().push).toHaveBeenCalledWith('/item/1');
-});
-```
-
-### 비동기 상태 테스트
-
-```typescript
-describe('CreateItemScreen', () => {
-  it('shows loading state during submission', async () => {
-    // 느린 API mock
-    server.use(
-      rest.post('/api/items', async (req, res, ctx) => {
-        await delay(1000);
-        return res(ctx.json({ id: '1' }));
-      }),
-    );
-
-    render(<CreateItemScreen />, { wrapper: createQueryWrapper() });
-
-    // 폼 입력
-    fireEvent.changeText(screen.getByPlaceholderText('Title'), 'New Item');
-    fireEvent.press(screen.getByText('Create'));
-
-    // 로딩 상태 확인
-    expect(screen.getByText('Creating...')).toBeTruthy();
-
-    // 완료 대기
-    await waitFor(() => {
-      expect(screen.queryByText('Creating...')).toBeNull();
-    });
-  });
-});
+// 테스트: expect(useRouter().push).toHaveBeenCalledWith('/item/1');
 ```
 
 ### 테스트 규칙
@@ -2905,7 +2287,7 @@ describe('CreateItemScreen', () => {
 
 ---
 
-## 31. 디버깅
+## 32. 디버깅
 
 ### React DevTools
 
@@ -2920,62 +2302,26 @@ npx react-devtools
 
 ### 네트워크 디버깅
 
-```typescript
-// 개발 모드에서 네트워크 요청 로깅
-if (__DEV__) {
-  // React Native Debugger 또는 Flipper 사용
-  // Expo: npx expo start 후 'j' 키로 Chrome DevTools 열기
-
-  // 수동 로깅 (필요 시)
-  const originalFetch = global.fetch;
-  global.fetch = async (...args) => {
-    const [url, options] = args;
-    console.debug(`[fetch] ${options?.method ?? 'GET'} ${url}`);
-    const response = await originalFetch(...args);
-    console.debug(`[fetch] ${response.status} ${url}`);
-    return response;
-  };
-}
-```
+- `npx expo start` 후 `j` 키 — Chrome DevTools (네트워크 탭 포함)
+- react-query devtools (개발 모드) — 쿼리 상태/캐시 확인
+- 필요 시 `__DEV__`에서 `global.fetch` 래핑해 요청/응답 로깅
 
 ### 성능 프로파일링
 
-```typescript
-// 1. React Profiler (위 23절 참조)
-// 2. Hermes 프로파일러
-//    - Expo Dev Menu -> "Open React Profiler"
-//    - CPU 프로파일: 함수별 실행 시간 분석
-
-// 3. 리렌더 하이라이트
-//    - React DevTools -> Settings -> "Highlight updates"
-//    - 불필요한 리렌더를 시각적으로 확인
-```
+- React Profiler (성능 최적화 섹션 참조) — 16ms 초과 컴포넌트 식별
+- Hermes CPU 프로파일 — 함수별 실행 시간
+- React DevTools → Settings → "Highlight updates" — 불필요 리렌더 시각 확인
 
 ### 일반적인 디버깅 전략
 - `console.log` 대신 `console.debug` (프로덕션 빌드에서 자동 제거 가능)
-- 상태 디버깅: zustand devtools 미들웨어
+- 상태 디버깅: zustand `devtools` 미들웨어 (`{ enabled: __DEV__ }`)
 - 네트워크: react-query devtools (개발 모드)
 - 크래시: `expo-updates` 에러 리포팅 또는 Sentry
 - 레이아웃: `borderWidth: 1, borderColor: 'red'`로 경계 확인 (개발 중)
 
-```typescript
-// zustand devtools (개발 모드)
-import { devtools } from 'zustand/middleware';
-
-const useStore = create<AppStore>()(
-  devtools(
-    persist(
-      (set) => ({ /* ... */ }),
-      { name: 'app-store' },
-    ),
-    { name: 'AppStore', enabled: __DEV__ },
-  ),
-);
-```
-
 ---
 
-## 32. 문서화 규칙
+## 33. 문서화 규칙
 
 > TypeScript 기본 문서화(`typescript.md`)를 따르되, React Native 특화 추가.
 
@@ -2983,11 +2329,11 @@ const useStore = create<AppStore>()(
 
 ```typescript
 // Good: 화면 역할을 한 줄로 설명
-/** Monthly calendar view with attendance management */
-export default function ScheduleScreen() { ... }
+/** Monthly calendar view with task management */
+export default function CalendarScreen() { ... }
 
 // Bad: 없거나 너무 장황
-export default function ScheduleScreen() { ... }
+export default function CalendarScreen() { ... }
 ```
 
 ### 커스텀 훅
@@ -3054,7 +2400,7 @@ if (Platform.OS === 'android') {
 
 ---
 
-## 33. 빌드 & 설정
+## 34. 빌드 & 설정
 
 ### app.json / app.config.ts 필수 설정
 
@@ -3070,35 +2416,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'myapp', // 딥링크 스킴
   orientation: 'portrait',
   icon: './assets/icon.png',
-  splash: {
-    image: './assets/splash.png',
-    resizeMode: 'contain',
-    backgroundColor: '#ffffff',
-  },
-  updates: {
-    fallbackToCacheTimeout: 0,
-  },
+  // newArchEnabled: New Architecture는 현행 SDK 기본 — 끄는 설정을 추가하지 않는다 (0.82+ 무시됨)
   plugins: [
     'expo-router',
     'expo-notifications',
     'expo-secure-store',
     ['expo-image-picker', { photosPermission: 'Allow access to select photos' }],
   ],
-  ios: {
-    supportsTablet: true,
-    bundleIdentifier: 'com.example.myapp',
-  },
+  ios: { supportsTablet: true, bundleIdentifier: 'com.example.myapp' },
   android: {
-    adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#ffffff',
-    },
+    adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: '#ffffff' },
     package: 'com.example.myapp',
   },
-  web: {
-    bundler: 'metro',
-    favicon: './assets/favicon.png',
-  },
+  web: { bundler: 'metro', favicon: './assets/favicon.png' },
   experiments: {
     typedRoutes: true, // 타입 안전 라우트
   },
@@ -3109,41 +2439,24 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
 ```json
 {
-  "cli": {
-    "version": ">= 7.0.0"
-  },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal",
-      "channel": "preview"
-    },
-    "production": {
-      "channel": "production",
-      "autoIncrement": true
-    }
-  },
-  "submit": {
-    "production": {
-      "ios": {
-        "appleId": "user@example.com",
-        "ascAppId": "1234567890"
-      }
-    }
+    "development": { "developmentClient": true, "distribution": "internal" },
+    "preview": { "distribution": "internal", "channel": "preview" },
+    "production": { "channel": "production", "autoIncrement": true }
   }
 }
 ```
 
 ### tsconfig.json 권장 설정
 
+> 컴파일러 안전 옵션(`noUncheckedIndexedAccess` 등)의 근거 → `typescript.md` 참조. RN에서는 expo 베이스 확장이 기본:
+
 ```json
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "noUncheckedIndexedAccess": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
@@ -3174,86 +2487,77 @@ module.exports = function (api) {
     presets: ['babel-preset-expo'],
     plugins: [
       'nativewind/babel',
-      'react-native-reanimated/plugin', // 반드시 마지막
+      'react-native-worklets/plugin', // Reanimated 4: worklets 분리 패키지의 플러그인 — 반드시 마지막
     ],
   };
 };
 ```
 
-> **주의**: `react-native-reanimated/plugin`은 반드시 plugins 배열의 마지막에 위치해야 한다.
+> **주의**: worklets 플러그인은 반드시 plugins 배열의 **마지막**에 위치해야 한다.
+> Reanimated 3 이하 레거시 프로젝트는 기존 `react-native-reanimated/plugin` 유지.
 
 ---
 
-## 34. 자주 쓰는 라이브러리/도구
+## 35. 자주 쓰는 라이브러리/도구
 
 ### 권장
 
 | 용도 | 라이브러리 | 이유 |
 |------|-----------|------|
-| 라우팅 | **expo-router** | 파일 기반, 딥링크 자동, 웹 호환 |
+| 라우팅 | **expo-router** | 파일 기반, 딥링크 자동, 웹 호환 (SDK 56+: React Navigation 포크 내장) |
 | 서버 상태 | **@tanstack/react-query** | 캐싱, 재시도, 무효화, 낙관적 업데이트 |
-| 클라이언트 상태 | **zustand** | 간결, 보일러플레이트 최소, 셀렉터 |
-| 스타일링 | **NativeWind v4** | Tailwind 문법, 웹/네이티브 통일 |
+| 클라이언트 상태 | **zustand** | 간결, 보일러플레이트 최소, 셀렉터 — react-query와의 조합이 표준 |
+| 스타일링 | **NativeWind v4** | Tailwind 문법, 웹/네이티브 통일 (v4가 프로덕션 표준 — v5는 pre-release) |
 | 이미지 | **expo-image** | 캐싱, 블러 해시, 트랜지션 |
-| 리스트 | **@shopify/flash-list** | FlatList보다 5배 빠름 |
+| 리스트 | **@shopify/flash-list v2** | 자동 측정(estimatedItemSize 불필요), New Arch 전용 |
 | 알림 | **expo-notifications** | FCM/APNs 통합 |
-| 보안 저장 | **expo-secure-store** | iOS Keychain / Android Keystore |
+| 상태 persist | **react-native-mmkv** | 동기 API, AsyncStorage 대비 ~30배 |
+| 토큰/민감 저장 | **expo-secure-store** | iOS Keychain / Android Keystore |
+| AsyncStorage 대체 | **expo-sqlite/kv-store** | AsyncStorage API 호환 드롭인 |
 | 폼 | **react-hook-form + zod** | 성능 최적, 타입 안전 검증 |
 | 날짜 | **date-fns** | 경량, tree-shaking |
 | 토스트 | **burnt** 또는 **react-native-toast-message** | 네이티브 느낌 |
 | 아이콘 | **@expo/vector-icons** | Expo 기본 포함 |
-| 애니메이션 | **react-native-reanimated** | 60fps UI 스레드 애니메이션 |
+| 애니메이션 | **react-native-reanimated 4** | CSS 애니메이션 API + worklet, New Arch 전용 (worklets 분리 패키지) |
 | 제스처 | **react-native-gesture-handler** | 네이티브 제스처 인식 |
 | 바텀시트 | **@gorhom/bottom-sheet** | reanimated 기반, 고성능 |
-| 키 저장 (비암호화) | **react-native-mmkv** | AsyncStorage보다 30배 빠름 |
 
 ### 피해야 할 것
 
-| 라이브러리 | 이유 | 대안 |
+| 라이브러리/API | 실패 결과 | 대안 |
 |-----------|------|------|
-| `Image` (RN 기본) | 캐싱 없음, 성능 나쁨 | `expo-image` |
-| `TouchableOpacity` | deprecated 추세 | `Pressable` |
-| `AsyncStorage` (토큰) | 암호화 안 됨 | `expo-secure-store` |
-| `react-navigation` (직접) | Expo Router가 래핑 | `expo-router` |
-| `moment.js` | deprecated, 거대 번들 | `date-fns`, `dayjs` |
-| `redux` (소규모) | 과도한 보일러플레이트 | `zustand` |
-| `axios` | 대부분 과도함 | `fetch` + react-query |
-| `react-native-fast-image` | expo-image가 더 나음, Expo 호환 | `expo-image` |
-| `@react-native-community/async-storage` (대용량) | 느림 | `react-native-mmkv` |
-
----
-
-## 35. 프로젝트별 확장 포인트
-
-> 아래 항목들은 프로젝트마다 다르므로 `/CLAUDE.md`에서 정의합니다:
-
-- 앱 이름, 번들 ID, 딥링크 스킴
-- 프로젝트 구조 상세 (features 폴더 목록)
-- 빌드/실행 명령 (`npx expo start`, `eas build`)
-- EAS 프로젝트 ID
-- 환경 변수 목록 및 값
-- 배포 전략 (EAS Update, 스토어 등)
-- 외부 서비스 연동 (Supabase, Firebase, Sentry 등)
-- 디자인 시스템 (색상, 폰트, 간격 토큰)
-- 앱 아이콘, 스플래시 스크린 설정
-- 소셜 로그인 프로바이더 설정
-- CI/CD 파이프라인 설정
-- API 엔드포인트 및 인증 방식
-- maxWidth 상수 값 (MAX_FORM_WIDTH, MAX_CONTENT_WIDTH 등)
+| `@react-navigation/*` 직접 설치·import (SDK 56+) | Expo Router 내장 포크와 이중 인스턴스 → 네비게이션 상태 파손 | `expo-router` export만 사용 |
+| `Image` (RN 기본) | 캐싱 없음 → 스크롤마다 재다운로드/깜빡임 | `expo-image` |
+| `SafeAreaView` (RN 코어) | 0.81 deprecated, iOS 전용/불완전 | `react-native-safe-area-context` |
+| `TouchableOpacity` | 유지보수 모드 — 신규 인터랙션/웹 미지원 | `Pressable` |
+| `@react-native-async-storage/async-storage` (신규 도입) | 느림 + 무암호화 — 토큰 저장 시 평문 노출 | mmkv / secure-store / expo-sqlite kv-store |
+| `moment.js` | deprecated, 번들 290KB+ | `date-fns`, `dayjs` |
+| `redux` (소규모) | 과도한 보일러플레이트 — 개발 속도 저하 | `zustand` |
+| `axios` | 대부분 과도함 + 번들 증가 | `fetch` + react-query |
+| `react-native-fast-image` | New Arch/Expo 호환 뒤처짐 | `expo-image` |
 
 ---
 
 ## 36. 실전 함정 & 지뢰
 
-> 실제 프로젝트에서 발견된 함정. 안티패턴과 다른 점: "정상적으로 보이지만 특정 조건에서 깨지는 것".
+> 함정 = "정상으로 보이지만 특정 조건에서 깨지는 것" — 안티패턴보다 위험하다 (경험자도 당함).
+> 작업 중 발견한 함정은 범용화(프로젝트 용어 제거) 후 여기에 4요소로 누적한다.
 
-| 증상 | 원인 | 해결 | 오답 (하지 말 것) |
-|------|------|------|-------------------|
-| 웹 새로고침(F5) 시 로그인 풀림 | Supabase Auth에 `storage: AsyncStorage` 설정 — 웹에서 AsyncStorage 미작동 | `Platform.OS === 'web' ? undefined : AsyncStorage`로 분기 | AsyncStorage를 웹 polyfill로 대체 (불필요한 복잡성) |
-| 탭 외 화면(상세 등)에서 탭바 미표시 | 탭바가 `(tabs)/_layout.tsx`에만 존재, Stack 네비게이션 밖 화면에는 적용 안 됨 | 커스텀 탭바 컴포넌트를 루트 레이아웃에 배치 또는 탭 내 중첩 네비게이션 | 모든 화면을 탭 안에 억지로 넣기 |
-| 모바일에서 탭바 하단 잘림 | SafeAreaView 처리 미흡 — 하단 안전 영역 미반영 | `useSafeAreaInsets()` + `paddingBottom: insets.bottom` | 고정 값 하드코딩 (기기마다 다름) |
-| `contentContainerClassName`으로 스타일 적용 시 웹에서 깨짐 | NativeWind의 contentContainerClassName은 웹에서 미지원 | `contentContainerStyle` 사용 | className으로 변경 시도 |
-| 이미지 피커 웹에서 크래시 | `expo-image-picker`의 `launchCameraAsync`는 웹 미지원 | `Platform.OS === 'web'`이면 `launchImageLibraryAsync`만 사용 | 카메라 기능을 웹에서도 시도 |
+| # | 증상 | 원인 | 해결 | 오답 (하지 말 것) |
+|---|------|------|------|-------------------|
+| 1 | New Arch 전환 후 짧은 강조/로딩 등 "중간 UI"가 화면에 안 나타남 | New Architecture는 모든 setState를 항상 배칭 — 레거시에서 `setTimeout`/네이티브 콜백 안 setState가 각각 렌더되던 동작에 의존한 코드 | 중간 상태 의존 제거 — 시간차 UI는 명시적 스케줄링/애니메이션으로 (New Architecture 섹션 참조) | `setTimeout(0)` 중첩으로 렌더 틈새 만들기 |
+| 2 | 특정 라이브러리 기능이 New Arch에서 미동작/크래시 (레거시에선 정상이었음) | 레거시 네이티브 모듈이 interop layer로 도는 중 — interop은 한시적이며 concurrent 미지원 | New Arch 지원 라이브러리로 교체 (reactnative.directory 확인 + `npx expo-doctor`) | `newArchEnabled: false` 옵트아웃 (0.82+ 무시됨, SDK 55+ 레거시 제거) |
+| 3 | SDK 업그레이드 후 네비게이션 훅/컴포넌트가 파손 | `@react-navigation/*`을 직접 설치·import — SDK 56+에서 Expo Router가 React Navigation을 포크 내장, 별도 설치분과 이중 인스턴스 | expo-router가 export하는 API로 전량 교체 + 직접 설치분 제거 | `@react-navigation/*` 버전 고정으로 억지 유지 (다음 SDK에서 또 파손) |
+| 4 | iOS에서 키보드가 올라오면 입력창이 헤더 높이만큼 가려짐 (KeyboardAvoidingView 썼는데도) | `behavior="padding"`은 화면 최상단 기준 계산 — 네비게이션 헤더 높이를 모름 (`keyboardVerticalOffset` 미전달) | 실제 헤더 높이(자체 헤더 상수/onLayout 실측)를 `keyboardVerticalOffset`에 전달 | 특정 기기에서 맞는 매직 넘버(예: 88) 하드코딩 |
+| 5 | Reanimated worklet 안에서 읽는 바깥 변수가 항상 옛 값 | worklet은 생성 시점 클로저를 UI 스레드로 **직렬화 캡처** — JS 스레드에서의 이후 변경을 모름 | 변하는 값은 `useSharedValue`로 전달, JS 함수 호출은 `runOnJS` | 전역 변수/ref로 공유 시도 (같은 이유로 안 됨) |
+| 6 | 라우트 파라미터로 받은 숫자 연산이 오동작 (`"1" + 1 = "11"`, 필터 미적용) | URL 파라미터는 런타임에 항상 `string` 또는 `string[]` — `useLocalSearchParams<T>()` 제네릭은 캐스팅일 뿐 | 경계에서 zod로 파싱 (`z.coerce.number()` 등) 후 사용 (네비게이션 섹션 참조) | `as unknown as number` 이중 단언 |
+| 7 | iOS 포그라운드에서 푸시 알림 배너가 표시되지 않음 (권한도 정상) | 구 예제의 `shouldShowAlert` 복사 — SDK 53+에서 deprecated (iOS 14 배너/알림센터 분리) | handler에 `shouldShowBanner: true` + `shouldShowList: true` 지정 | 알림 권한 요청 로직만 반복 수정 (원인이 아님) |
+| 8 | Android 뒤로가기(버튼/제스처)에 커스텀 처리가 안 먹거나 앱이 그냥 종료 | `BackHandler`로 화면 이탈을 막으려 함 — 네비게이터의 back 처리와 경합, 제스처 내비게이션에서 동작 상이 | 화면 이탈 방어는 네비게이션 이벤트(이탈 방지 훅/리스너)로 처리, BackHandler는 최후 수단 | BackHandler에서 항상 `true` 반환 (시스템 back 전부 삼켜 앱 탈출 불가) |
+| 9 | 웹 새로고침(F5) 시 로그인 풀림 | 인증 스토리지에 네이티브 전용 storage 지정 — 웹에서 미작동 | `Platform.OS === 'web' ? undefined : nativeStorage`로 분기 (웹은 기본 localStorage) | 네이티브 storage를 웹 polyfill로 대체 (불필요한 복잡성) |
+| 10 | 탭 외 화면(상세 등)에서 탭바 미표시 | 탭바가 `(tabs)/_layout.tsx`에만 존재 — Stack 밖 화면에는 적용 안 됨 | 커스텀 탭바를 루트 레이아웃에 배치 또는 탭 내 중첩 네비게이션 | 모든 화면을 탭 안에 억지로 넣기 |
+| 11 | 모바일에서 탭바/하단 버튼이 홈 인디케이터에 잘림 | 하단 안전 영역 미반영 | `useSafeAreaInsets()` + `paddingBottom: insets.bottom` | 고정 값 하드코딩 (기기마다 다름) |
+| 12 | `contentContainerClassName` 스타일이 웹에서 깨짐 | NativeWind의 해당 prop은 웹 미지원 | `contentContainerStyle` 사용 | 다른 className 조합으로 재시도 |
+| 13 | 이미지 피커가 웹에서 크래시 | `launchCameraAsync`는 웹 미지원 | `Platform.OS === 'web'`이면 `launchImageLibraryAsync`만 사용 | 카메라 기능을 웹에서도 시도 |
 
 ---
 
@@ -3262,26 +2566,113 @@ module.exports = function (api) {
 ### 새 화면 추가 시
 
 ```
-- [ ] SafeAreaView 최상위 래핑 (flex: 1, backgroundColor)
-- [ ] maxWidth 제한 적용 (용도에 맞는 상수)
-- [ ] width: '100%' + alignSelf: 'center' 세트
+- [ ] SafeAreaView(react-native-safe-area-context) 최상위 래핑 (flex: 1, backgroundColor 명시)
 - [ ] 4가지 상태 처리 (로딩/에러/빈 데이터/정상)
-- [ ] 웹에서 확인 (npx expo start --web)
-- [ ] 모바일에서 확인 (SafeArea 잘림, 키보드 가림)
-- [ ] 인증 필요 여부 확인 (가드 처리)
+- [ ] maxWidth 상수 + width: '100%' + alignSelf: 'center' 3종 세트 (웹 대비)
+- [ ] ScrollView는 contentContainerStyle 사용 (contentContainerClassName 금지)
+- [ ] 폼 화면: KeyboardAvoidingView + keyboardShouldPersistTaps="handled" + 헤더 오프셋
+- [ ] 인증 필요 여부 확인 (_layout.tsx 가드)
+- [ ] 웹 확인: npx expo start --web (데스크톱 너비 포함)
 ```
 
-### 배포 전 크로스 플랫폼 확인
+### 실기기 테스트 전
 
 ```
-- [ ] 웹: 로그인 → 새로고침 → 세션 유지 확인
-- [ ] 웹: 데스크톱 너비에서 레이아웃 정상
-- [ ] 모바일: 탭바 하단 잘림 없음
-- [ ] 모바일: 키보드 올라올 때 입력창 가림 없음
-- [ ] 모든 플랫폼: 핵심 CRUD 동작 확인
+- [ ] npx expo-doctor — 의존성/설정 진단 통과
+- [ ] npx expo install --check — SDK 비호환 패키지 0건
+- [ ] 네이티브 모듈 추가/변경 시 dev build 재생성 (eas build --profile development) — Expo Go로는 검증 불가
+- [ ] 권한 플로우를 "거부" 케이스 포함해 확인 (알림/카메라/사진)
+- [ ] 노치·제스처 내비게이션 기기에서 SafeArea 확인 (상단 겹침/하단 잘림)
+- [ ] 성능 체감은 release 빌드로만 판단 (npx expo run:android --variant release) — dev 빌드는 수 배 느림
 ```
+
+### 스토어 제출 전
+
+```
+- [ ] eas build --profile production 성공 + 산출물 실제 설치·실행 확인
+- [ ] 버전/빌드넘버 증가 확인 (eas.json autoIncrement)
+- [ ] iOS 권한 문구(NS*UsageDescription)가 실제 사용 기능과 일치 — 불일치 시 심사 리젝
+- [ ] 프로덕션 환경변수 적용 확인 — 개발 API URL 잔존 금지 (.env.production)
+- [ ] console.log 제거 확인 (babel-plugin-transform-remove-console 또는 grep -rn "console.log" src/ app/)
+- [ ] 딥링크 동작 확인 (npx uri-scheme open myapp://item/1 --ios)
+- [ ] EAS Update 채널이 production인지 확인 (preview 채널로 배포 사고 방지)
+```
+
+### 성능 점검
+
+```
+- [ ] release 빌드에서 측정 (dev 모드 측정치는 무의미)
+- [ ] React DevTools "Highlight updates"로 불필요 리렌더 확인
+- [ ] Profiler로 16ms(60fps) 초과 컴포넌트 식별
+- [ ] 긴 리스트가 FlashList/FlatList인지 + 아이템 컴포넌트 분리 확인 (ScrollView + .map 금지)
+- [ ] eslint-plugin-react-compiler 경고 0건 (컴파일러 최적화 제외 컴포넌트 없음)
+- [ ] 이미지: expo-image + 업로드 전 리사이즈 + 리스트 recyclingKey
+```
+
+### 웹 호환 확인
+
+```
+- [ ] npx expo start --web 부팅 + 콘솔 에러 0건
+- [ ] 로그인 → F5 새로고침 → 세션 유지
+- [ ] grep -rn "Alert.alert" src/ app/ — 전 사용처에 웹 분기 존재
+- [ ] grep -rn "contentContainerClassName" src/ app/ — 0건
+- [ ] window/document 직접 접근에 Platform.OS === 'web' 가드
+- [ ] 데스크톱 너비(1280px+)에서 maxWidth 제한 동작
+```
+
+### 에러 발생 시 디버깅 흐름
+
+1. **JS 에러인지 네이티브 크래시인지 판별** — 레드박스/LogBox(JS) vs 앱 즉사(네이티브: `adb logcat` / Xcode 콘솔)
+2. **재현 환경 좁히기** — Expo Go / dev build / release 중 어디서만 나는가 (네이티브 모듈 문제는 Expo Go에서 재현 안 됨)
+3. 최근 추가한 라이브러리의 **New Architecture 호환** 확인 (reactnative.directory + `npx expo-doctor`)
+4. 플랫폼 한정이면 `Platform` 분기/플랫폼별 파일(`.ios.tsx` 등) 확인
+5. 상태/리렌더 문제면 React DevTools로 상태 흐름 추적 (react-query devtools 포함)
+6. 재현 최소화 — 새 화면에 해당 컴포넌트만 격리해 원인 이분탐색
+
+---
+
+## 38. 우회/핵 금지 원칙
+
+> 증상 땜빵이 아닌 근본 원인을 진단한다. "일단 돌아가게"는 다음 SDK 업그레이드 때 시한폭탄이 된다.
+
+| 우회 패턴 (금지) | 왜 위험한가 | 정석 해결 |
+|-----------------|-----------|----------|
+| `newArchEnabled: false`로 호환 문제 회피 | 0.82+에서 무시 + SDK 55에서 레거시 제거 — 해결된 척만 하고 파국을 이월 | 비호환 라이브러리 교체/업데이트 (New Architecture 섹션) |
+| Expo Go에서만 확인하고 "동작 확인" 선언 | 네이티브 모듈/권한/딥링크는 Expo Go와 실빌드 동작이 다름 | dev build + 실기기 검증 (체크리스트 참조) |
+| `npm install --force` / `--legacy-peer-deps`로 버전 충돌 강행 | Expo SDK 호환 매트릭스 파괴 → 빌드는 되는데 런타임 네이티브 크래시 | `npx expo install` + `npx expo-doctor`로 정합 유지 |
+| `LogBox.ignoreLogs`로 경고 침묵 | 실제 결함(cleanup 누락, 중복 키, deprecated API) 은폐 — 릴리즈에서 버그로 발현 | 경고의 원인을 수정, ignore는 서드파티 발 소음 한정 + 사유 주석 |
+| 웹 깨짐을 `Platform.OS === 'web'` 대량 분기로 덮기 | 코드 이중화 — 한쪽만 수정되는 불일치가 누적 | 크로스플랫폼 API 우선, 분기는 최소 지점(헬퍼 1곳)으로 격리 |
+| 키보드/SafeArea 문제를 매직 넘버 padding으로 봉합 | 특정 기기에서만 맞음 — 다른 기기/회전/폴더블에서 파손 | insets/실측 높이 기반 계산 (키보드 처리 섹션) |
+| 타입 에러를 `as any`로 봉합 | `typescript.md` 우회 금지 원칙 참조 | 타입 가드/스키마 검증 |
+
+---
+
+## 39. 프로젝트별 확장 포인트
+
+> 아래 항목들은 프로젝트마다 다르므로 `/CLAUDE.md`에서 정의합니다:
+
+- 앱 이름, 번들 ID, 딥링크 스킴 / EAS 프로젝트 ID
+- 프로젝트 구조 상세 (features 폴더 목록)
+- 빌드/실행 명령 (`npx expo start`, `eas build`) + CI/CD 파이프라인
+- 환경 변수 목록 및 값
+- 배포 전략 (EAS Update 채널, 스토어)
+- 외부 서비스 연동 (백엔드, 푸시, 에러 리포팅 등)
+- 디자인 시스템 (색상, 폰트, 간격 토큰) / 앱 아이콘, 스플래시
+- 소셜 로그인 프로바이더 설정
+- API 엔드포인트 및 인증 방식
+- maxWidth 상수 값 (MAX_FORM_WIDTH, MAX_CONTENT_WIDTH 등)
 
 <!-- 개선 이력
 - 2026-03-27: 실전 함정 섹션 추가 — AsyncStorage 웹 세션 유실, 탭바 미표시/잘림 발견
 - 2026-03-27: 검증 체크리스트 추가 — 새 화면/배포 전 크로스 플랫폼 확인
+- 2026-07-03: 2026-07 기준 전면 개편 (74점 → Level 3 상위 목표 + 100KB→65KB 다이어트).
+  신설: New Architecture 섹션(0.82+ 옵트아웃 무시/SDK 55 레거시 제거/state 배칭/interop 한시성/호환 확인법),
+  우회·핵 금지 원칙(7행). deprecated 청소: shouldShowAlert→shouldShowBanner+shouldShowList,
+  RN 코어 SafeAreaView→safe-area-context, LayoutAnimation→Reanimated entering/exiting.
+  방향 반전: React Compiler(SDK 54+) 기본 활성 — 수동 useMemo/useCallback/React.memo 지양으로 성능·훅·리스트 지침 교체.
+  최신화: FlashList v2(estimatedItemSize 제거, New Arch 전용), Reanimated 4(worklets 분리 패키지/CSS API),
+  Expo Router SDK 56+ React Navigation 포크(직접 import 금지), 스토리지 기준(mmkv/secure-store/expo-sqlite kv-store).
+  실전 함정 5→13행(4요소), 검증 체크리스트 2→6종+디버깅 흐름, 안티패턴 "이유"→"실패 결과" 전환.
+  다이어트: typescript.md 중복 위임(비동기 타임아웃/커스텀 에러 계층/옵셔널 처리/export 일반론),
+  중복 예시 통합(AsyncList, memo 블록 3중, useConfirmDialog, LayoutAnimation 등). 근거: 2026-07 웹 리서치 확정 팩트.
 -->

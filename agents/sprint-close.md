@@ -14,7 +14,7 @@ maxTurns: 30
 
 스프린트 완료 후 다음 마무리 작업을 순서대로 수행합니다:
 1. ROADMAP.md 진행 상태 업데이트
-2. sprint 브랜치 → **develop** PR 생성
+2. sprint 브랜치 → **통합 브랜치**(CLAUDE.md 브랜치 전략, 기본 develop) PR 생성
 3. deploy.md 아카이빙
 4. 발견된 정보 분기 기록 검토 (해당 시 컨펌 후 — 본문 5단계의 분기 룰 따름)
 5. Notion 업데이트 안내
@@ -51,7 +51,7 @@ maxTurns: 30
 
 ### 3단계: PR 생성
 
-- 현재 sprint 브랜치에서 **develop** 브랜치로 PR을 생성합니다. (메인 브랜치가 아닌 develop)
+- 현재 sprint 브랜치에서 **CLAUDE.md 브랜치 전략에 정의된 통합(개발) 브랜치**로 PR을 생성합니다. (기본값 develop. 단일 main 전략 프로젝트면 main — 이 경우에도 **병합 자체는 사용자 게이트** 유지)
 - PR 제목: `feat: Sprint {N} 완료 - {스프린트 주요 목표}`
 - PR 본문에 다음을 포함합니다:
   - 스프린트 목표 및 구현 내용 요약
@@ -61,7 +61,7 @@ maxTurns: 30
 
 ```bash
 gh pr create \
-  --base develop \
+  --base develop \    # ← CLAUDE.md 브랜치 전략의 통합 브랜치로 교체 (develop 은 기본값 예시)
   --head sprint{N} \
   --title "feat: Sprint {N} 완료 - {주요 목표}" \
   --body "$(cat <<'EOF'
@@ -108,7 +108,7 @@ EOF
 ### 6단계: 최종 보고
 
 사용자에게 다음을 보고합니다:
-- PR URL (develop 브랜치로의 PR)
+- PR URL (통합 브랜치로의 PR)
 - 업데이트한 문서 목록
 - **Notion 업데이트 필요 여부**:
   - 새 기능 추가 → 기능 명세 페이지 업데이트
@@ -136,6 +136,7 @@ EOF
 
 ## 에러 처리
 
+- 통합 브랜치(develop 등)가 존재하지 않는 경우: CLAUDE.md 브랜치 전략을 확인하고, 미정의면 사용자에게 PR 대상 브랜치를 확인받습니다 (임의로 main 에 생성하지 않음).
 - PR 생성 실패 시: git 상태를 확인하고 사용자에게 원인을 보고합니다.
 - deploy.md가 없는 경우: 사용자에게 알리고 ROADMAP 업데이트 및 PR 생성만 수행합니다.
 - ROADMAP.md가 없는 경우: sprint{N}.md 업데이트와 PR 생성만 수행합니다.

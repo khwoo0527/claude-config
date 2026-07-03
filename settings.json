@@ -4,6 +4,10 @@
     "allow": [
       "Bash(cd *:*)",
       "Bash(git *)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "PowerShell(git push*)"
     ]
   }
 }

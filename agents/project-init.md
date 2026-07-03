@@ -9,6 +9,8 @@ color: green
 
 > **이 에이전트는 모든 워크플로우의 시작점입니다.** 프로젝트가 시작되면 가장 먼저 실행하여 CLAUDE.md와 rules를 세팅한 뒤, 이후 에이전트들(prd-to-roadmap, phase-planner 등)이 올바르게 동작할 수 있는 기반을 마련합니다.
 
+> 🔑 **실행 방식: 인터뷰형 — 메인 스레드 인라인 수행** (서브에이전트 스폰 금지). 절차에 사용자 질문/중간 확인이 포함되는데 서브에이전트는 실행 중 대화가 불가능하다. 메인 Claude 가 본 문서를 Read 하여 아래 절차를 그대로 수행한다 — [`agent-guide.md § 4.5`](../rules/workflow/agent-guide.md) 참조.
+
 ## 핵심 원칙
 
 - **사용자의 아이디어를 구체화**하되, 방향을 강요하지 않습니다. 질문으로 이끌어냅니다.
@@ -25,7 +27,7 @@ color: green
 > 새 프로젝트 시작 시 아래 정리를 먼저 수행한다.
 
 #### 왜 정리해야 하는가
-- `memory/`와 `agent-memory/`에 이전 프로젝트의 인프라 정보, Sprint 상태 등이 남아있으면
+- `rules/memory/`와 `agent-memory/`에 이전 프로젝트의 인프라 정보, Sprint 상태 등이 남아있으면
   에이전트가 현재 프로젝트가 아닌 **이전 프로젝트 맥락으로 동작**할 수 있다.
 - 예: 이전 프로젝트의 Sprint 2 상태가 남아있으면 sprint-planner 가 Sprint 3부터 시작하려 함.
 
@@ -45,7 +47,7 @@ color: green
 
 | 위치 | 유지 대상 |
 |------|----------|
-| `.claude/memory/` | `user_*.md`, `feedback_*.md`, `reference_*.md`, `MEMORY.md` (가이드) |
+| `.claude/rules/memory/` | `user_*.md`, `feedback_*.md`, `reference_*.md`, `MEMORY.md` (가이드) |
 | `.claude/rules/` | 모든 파일 (기술 스택별 rules는 paths 매칭으로 자동 필터링) |
 | `.claude/agents/`, `.claude/commands/` | 모든 파일 (범용 워크플로우) |
 | `.claude/templates/` | 모든 파일 (rules-guide, designs 카탈로그) |
@@ -143,7 +145,7 @@ color: green
 기술 스택 규칙이 준비된 후, **`.claude/templates/CLAUDE-TEMPLATE.md`** 의 템플릿을 기반으로 프로젝트 루트에 `/CLAUDE.md` 를 생성합니다.
 
 **포함 항목** (템플릿 구조 그대로 채움):
-- 세션 시작 시 자동 로딩 섹션 (`/InitLoad` 안내 — **템플릿에 포함되어 있으므로 그대로 유지**)
+- 세션 컨텍스트 로딩 섹션 (rules 자동 로딩 안내 — **템플릿에 포함되어 있으므로 그대로 유지**)
 - 프로젝트 개요 (목적, 유형)
 - 확정된 기술 스택
 - 적용되는 rules 파일 목록 (4단계에서 생성/확인한 것)
@@ -154,7 +156,7 @@ color: green
 - 배포 전략 (해당 시)
 - 코드 컨벤션 (기술 스택 표준 + rules 기반)
 
-> ⚠️ **InitLoad 자동 로딩 섹션을 절대 누락하지 않습니다** — 새 프로젝트의 다음 세션부터 메모리/룰 로딩이 끊기지 않도록 보장.
+> ⚠️ **세션 컨텍스트 로딩 섹션을 절대 누락하지 않습니다** — 계획성 작업의 수동 로딩 절차와 에이전트 진입 절차가 새 프로젝트에서도 끊기지 않도록 보장.
 
 **CLAUDE.md는 사용자에게 보여주고 확인받은 후 생성합니다.**
 
@@ -217,7 +219,7 @@ UI가 있다면 다음 절차를 진행합니다:
 
 > 이 README.md는 `.claude/README.md`(프레임워크 가이드)와 다른 문서다. 혼동 주의.
 
-> **발견된 정보 분기 기록**: 자기 캐시 없음 — 부트스트랩 작업 중 발견한 기술 스택 노하우는 `rules/tech/{tech}.md` 보강 (4단계에서 생성됨). 부트스트랩 패턴 특성상 사용자 작업 스타일 캐치 빈도는 낮으므로 사용자 스타일 발견 시만 별도 컨펌 후 `memory/feedback_*.md` 제안. 분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md). 위임 신호 시 자동 + 사후 보고.
+> **발견된 정보 분기 기록**: 자기 캐시 없음 — 부트스트랩 작업 중 발견한 기술 스택 노하우는 `rules/tech/{tech}.md` 보강 (4단계에서 생성됨). 부트스트랩 패턴 특성상 사용자 작업 스타일 캐치 빈도는 낮으므로 사용자 스타일 발견 시만 별도 컨펌 후 `rules/memory/feedback_*.md` 제안. 분기 룰: [`agent-memory.md`](../rules/workflow/agent-memory.md) + [`tech-knowledge.md`](../rules/workflow/tech-knowledge.md). 위임 신호 시 자동 + 사후 보고.
 
 ### 8단계: 다음 단계 안내
 

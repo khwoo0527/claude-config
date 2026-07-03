@@ -16,9 +16,9 @@ paths:
 | 폴더 | 정체성 | 자동 로딩 | 새 프로젝트 시 | 누적 자산? |
 |---|---|:-:|---|:-:|
 | `/CLAUDE.md` (프로젝트 루트) | 이 프로젝트의 정의 | ✅ Claude Code 기본 | 새로 작성 | ❌ |
-| `memory/` | 사용자 작업 스타일 + 핵심 원칙 | ✅ `/InitLoad` 강제 | 그대로 (범용) | ✅ |
-| `rules/tech/` | 기술별 노하우 | ❌ 작업 시점 수동 | 그대로 (범용) | ✅ |
-| `rules/workflow/` | 가이드/정책 (단일 진실 원천) | ❌ 작업 시점 수동 | 그대로 (범용) | ✅ |
+| `rules/memory/` | 사용자 작업 스타일 + 핵심 원칙 | ✅ rules 상시 자동 (`paths` 없음) | 그대로 (범용) | ✅ |
+| `rules/tech/` | 기술별 노하우 | ✅ 조건부 자동 (`paths` 매칭 파일 작업 시) | 그대로 (범용) | ✅ |
+| `rules/workflow/` | 가이드/정책 (단일 진실 원천) | ✅ `paths` 유무 따라 상시/조건부 자동 | 그대로 (범용) | ✅ |
 | `agents/` | 에이전트 정의 | (호출 시) | 그대로 (범용) | ✅ |
 | `commands/` | 슬래시 커맨드 | (호출 시) | 그대로 (범용) | ✅ |
 | `agent-memory/{name}/` | 에이전트별 작업 컨텍스트 캐시 | ❌ 에이전트 진입 시 자기 캐시 Read | **리셋** | ❌ |
@@ -47,8 +47,8 @@ paths:
 2️⃣ 어떤 종류인가?
 
   📌 사용자 작업 스타일 / 선호 / 원칙
-    → memory/feedback_*.md 또는 user_*.md
-    → MEMORY.md 인덱스 등록 필수
+    → rules/memory/feedback_*.md 또는 user_*.md
+    → 폴더에 두기만 하면 자동 로딩 (인덱스/paths 불필요 — paths 넣으면 안 됨)
 
   📌 기술 스택 노하우 (안티패턴, 함정, 베스트 프랙티스)
     → rules/tech/{tech}.md
@@ -69,22 +69,22 @@ paths:
     → templates/{NAME}-TEMPLATE.md (CLAUDE-TEMPLATE.md 처럼)
     → 또는 templates/{folder}/ (designs/ 처럼 카탈로그)
 
-3️⃣ 진입 경로 확보 (가이드/정책 문서 한정 — 누락하면 페이퍼워크)
+3️⃣ 로딩 방식 결정 (가이드/정책/메모리 문서 한정)
 
-  ⚠️ 핵심: `frontmatter paths` 는 자동 로딩 메커니즘이 아니다 (단순 메타데이터).
-     Claude Code 가 자동 로딩하는 건 `/CLAUDE.md` + `~/.claude/projects/*/memory/MEMORY.md` 만.
-     그 외는 모두 누군가 명시적으로 Read 해야 함.
+  🔑 신 로딩 모델 (2026-07): `.claude/rules/**` 는 Claude Code 가 네이티브 자동 로딩한다.
+     - `paths` 없음 → 매 세션 상시 로딩 (토큰 예산 소모 — 상시 총량 예산은 session-init.md 가 진실 원천, 수치는 그쪽 참조)
+     - `paths` 있음 → 매칭 패턴 파일 작업 시 조건부 로딩
+     - rules 밖 (templates/, agents/ 가 참조하는 문서 등) → 여전히 명시적 Read 필요
 
-  📌 신설 문서가 자동 진입 경로 있는가?
-    ✅ session-init.md 매트릭스의 작업 유형에 매칭됨 → OK
-       (예: 코드 구현 → sprint-workflow.md, 에이전트 작성 → agent-guide.md)
-    ✅ 다른 가이드/에이전트 본문에서 명시적으로 참조됨 → OK
-       (예: agent-memory.md 는 sprint-planner 등에서 참조)
-    ❌ 어디서도 명시적으로 Read 안 됨 → 진입 경로 추가 필요!
+  📌 새 문서의 로딩 방식 선택:
+    ✅ 모든 세션에 필요한 소형 문서 (사용자 원칙 등) → rules/ + paths 없음
+    ✅ 특정 파일/작업에서만 필요 → rules/ + paths 글롭
+       (글롭 적정성 필수 확인 — 과포괄 글롭은 무관 스택 프로젝트에서 대형 룰 오로딩 유발)
+    ✅ 계획/검토성 작업용 (파일 매칭으로 못 잡음) → session-init.md 매트릭스에 작업 유형 등록
+    ❌ rules 밖 문서인데 어디서도 참조 안 됨 → 페이퍼워크 — 진입 경로 추가 필요!
 
-  📌 진입 경로 추가 위치 (책임 분리)
-    - 가이드/정책 (rules/workflow/*) → `session-init.md` 매트릭스에 작업 유형 + 로딩 대상 등록
-    - 기술 노하우 (rules/tech/*) → 이미 매트릭스에 "코드 구현/리뷰/rules 작성" 행 있음, 별도 등록 불필요
+  📌 책임 분리
+    - 상시/조건부 판단 기준 + 예산: `session-init.md` "자동 로딩" 섹션이 진실 원천
     - 에이전트 (agents/*) → Task tool 호출 메커니즘 별도, CLAUDE.md "에이전트 진입 절차" 가 강제
 ```
 
@@ -114,13 +114,13 @@ paths:
 
 ## 4. memory vs agent-memory 구분 (자주 헷갈림)
 
-| 구분 | memory/ | agent-memory/{name}/ |
+| 구분 | rules/memory/ | agent-memory/{name}/ |
 |---|---|---|
 | 성격 | 사용자 작업 스타일 / 선호 / 원칙 | 에이전트별 작업 컨텍스트 캐시 |
 | 범위 | 프로젝트 무관 (범용) | 프로젝트 종속 |
 | 누적? | ✅ 누적 자산 | ❌ 새 프로젝트 시 리셋 |
-| 자동 로딩 | ✅ `/InitLoad` 강제 | ❌ 에이전트 진입 시 자기 캐시만 |
-| 인덱스 | MEMORY.md 필수 | MEMORY.md 단일 파일 |
+| 자동 로딩 | ✅ rules 상시 자동 (paths 없음) | ❌ 에이전트 진입 시 자기 캐시만 |
+| 인덱스 | 불필요 (폴더에 두면 자동) | MEMORY.md 단일 파일 |
 | 다른 프로젝트로 복사? | ✅ 그대로 | ❌ 절대 X |
 
 ### 판별 기준 (한 줄)
@@ -133,22 +133,22 @@ paths:
 
 ## 5. 폴더별 추가 시 체크리스트
 
-### memory/ 에 추가
+### rules/memory/ 에 추가
 - [ ] `feedback_*.md` 또는 `user_*.md` 명명 규칙 따름
 - [ ] frontmatter `name`, `description`, `type` (user/feedback/project/reference) 명시
-- [ ] `MEMORY.md` 인덱스에 한 줄 추가
+- [ ] **`paths` frontmatter 넣지 않음** (넣으면 조건부로 바뀌어 세션 시작 시 누락)
 - [ ] 다른 프로젝트에서도 그대로 통하는지 확인 (이 프로젝트 종속이면 X)
 
 ### rules/tech/ 에 추가
 - [ ] [`tech-knowledge.md`](tech-knowledge.md) 의 누적 정책 따름
-- [ ] [`rules-guide.md`](rules-guide.md) 의 4단계 품질 체크리스트 적용
+- [ ] [`rules-guide.md`](rules-guide.md) 의 품질 평가 체계 적용 + 신규/대폭 수정 시 [`/ScoreRules`](../../commands/ScoreRules.md) 객관 채점
 - [ ] frontmatter `paths` 매칭 (자동 로딩 영역 정의)
 
 ### rules/workflow/ 에 추가
 - [ ] 단일 진실 원천 위반 X (다른 곳에 같은 정책 있는지 확인)
-- [ ] frontmatter `paths` 매칭 (메타데이터용 — 자동 로딩 X)
+- [ ] **🔑 로딩 방식 결정** (§ 2 결정 트리 3️⃣): 상시(paths 없음, 소형 한정) vs 조건부(paths 글롭 — 적정성 확인)
 - [ ] 다른 문서에서 이 가이드 참조 가능하도록 명시적 제목
-- [ ] **🔑 진입 경로 확보**: `session-init.md` 매트릭스에 작업 유형 + 로딩 대상 등록 (안 하면 페이퍼워크)
+- [ ] 계획/검토성 작업용이면 `session-init.md` 매트릭스에 작업 유형 + 로딩 대상 등록
 - [ ] 누락 시 발생 문제를 `session-init.md` "로딩하지 않았을 때 발생하는 문제" 표에 추가
 
 ### agents/ 에 추가
@@ -178,19 +178,19 @@ paths:
 - ❌ `rules/workflow/` 에 빈 골격 (예: `*-TEMPLATE.md`) — `templates/` 가 맞음
 - ❌ `templates/` 에 가이드/정책 — `rules/workflow/` 가 맞음
 - ❌ `agent-memory/` 에 다른 프로젝트에 통할 일반 노하우 — `rules/tech/` 로
-- ❌ `memory/` 에 이 프로젝트 종속 정보 — `/CLAUDE.md` 또는 `agent-memory/` 로
+- ❌ `rules/memory/` 에 이 프로젝트 종속 정보 — `/CLAUDE.md` 또는 `agent-memory/` 로
 
 ### 단일 진실 원천 위반
 - ❌ 같은 정책이 여러 위치에 박힘 (예: 외부 서비스 위치 정의를 본문 여러 곳에)
 - ❌ 가이드 본문이 다른 가이드와 중복 (참조로 대체)
 - ❌ `agents/` 본문에 진입 절차 명시 (CLAUDE.md 자동 로딩과 중복)
 
-### 진입 경로 / 메타데이터 위반
-- ❌ `MEMORY.md` 인덱스 (글롭) 결과와 실제 파일 수 불일치 → `/InitLoad` 누락
+### 로딩 방식 / 메타데이터 위반
 - ❌ 폐지된 frontmatter 키 사용 (예: `memory: project`)
-- ❌ **frontmatter `paths` 만 명시하고 진입 경로 등록 안 함 → 페이퍼워크 문서**
-  - `paths` 는 자동 로딩이 아님 (단순 메타데이터)
-  - rules/workflow/* 신설 시 `session-init.md` 매트릭스 등록 필수
+- ❌ **paths 없는 대형/저빈도 문서를 rules/ 에 둠** → 매 세션 상시 로딩으로 토큰 예산 잠식
+- ❌ **paths 글롭 과포괄** (예: 프레임워크 룰에 `**/*.ts`) → 무관 스택 프로젝트에서 대형 룰 오로딩
+- ❌ `rules/memory/` 파일에 paths 부여 → 조건부로 바뀌어 세션 시작 시 사용자 원칙 누락
+- ❌ rules 밖 문서가 어디서도 참조 안 됨 → 페이퍼워크 (진입 경로 필요)
 
 ### 다중 파일 모델 (옛 정책)
 - ❌ `agent-memory/{name}/2026-04-25-task.md` 같은 날짜별 분리
@@ -198,7 +198,46 @@ paths:
 
 ---
 
-## 7. 변경 이력 (정책 진화)
+## 7. 연쇄 갱신 매트릭스 — "이걸 바꾸면 저것도 고쳐라"
+
+> 문서/폴더 변경 시 함께 갱신해야 할 대상. **변경 작업의 마지막 단계에서 이 표를 확인**한다.
+> 원칙: 파일 추가/삭제급 변경은 그 자리에서 연쇄 갱신 (지연 누적 금지). 문구 수준 변경은 연쇄 없음.
+
+| 변경한 것 | 반드시 함께 갱신 | 확인 방법 |
+|---|---|---|
+| `agents/` 추가·삭제 | README 트리 + 에이전트 표 · `agent-memory/{name}/` 폴더 생성/삭제 결정 | README 표 행수 = `agents/*.md` 글롭 수 |
+| `commands/` 또는 `skills/` 추가·삭제 | README 트리 + 커맨드 표 · (프로세스 스킬이면) sprint-planner·sprint-dev 의 스킬 매핑 | README 표 = 글롭 수, 문서 내 스킬 참조 실존 |
+| `rules/tech/` 신규·대폭 수정 | [`/ScoreRules`](../../commands/ScoreRules.md) 채점 → README 점수 표 · `paths` 글롭 적정성 검토 | 채점 일자가 README 에 병기됨 |
+| `rules/workflow/` 신규 | 로딩 방식 결정 (§ 2 결정 트리 3️⃣) · (계획성 문서면) session-init 매트릭스 · README 트리 + 워크플로우 표 | paths 유무 의도 확인 + README 표 |
+| `rules/memory/` 추가 | 없음 (자동 로딩 — 인덱스 불필요) · 상시 예산만 확인 (session-init 예산) | paths 없는 rules 총 KB ≤ 예산 |
+| 파일/폴더 **이동·개명** | 전체 참조 갱신 + **옛 명칭 전역 grep 0건 확인** · README 트리 · § 8 변경 이력 | `grep -rn "옛명칭" .claude/` = 0 |
+| **정책 전환** (로딩 모델, 게이트, 채점 방식 등) | 그 정책을 서술하는 모든 문서 연쇄 갱신 + § 8 변경 이력 + **§ 7-1 독립 검증 필수** | 신·구 서술 모순 쌍 grep |
+| `templates/designs/` 추가·삭제 | design-catalog.md 태그 매트릭스 행 + 테마별 목록 | 카탈로그 행 = 파일 실존 |
+| 게이트/확인 절차 변경 | supervision.md ↔ feedback_work_style ↔ sprint-dev ↔ **drive ↔ design-review** 5문서 정합 확인 | 레벨별 게이트 표 대조 |
+
+> **README 동기화 이중 체계**: 파일 추가/삭제 시 그 자리에서 소규모 갱신(위 표) + 드리프트 누적 의심 시 [`/UpdateReadme`](../../commands/UpdateReadme.md) 로 전량 실측 동기화. 표 갱신을 깜빡한 채 발견되면 즉시 /UpdateReadme.
+
+### 7-1. 범용 문서 변경 후 독립 검증 (🔴 필수 — 생략 금지)
+
+`.claude/` 범용 문서를 **3개 이상 수정하거나, 폴더 구조·정책이 바뀌는 변경**을 했으면, 작업의 마지막에 반드시 다음 절차를 수행한다:
+
+1. **자가 검증** — 옛 명칭/옛 경로/깨진 참조를 작성자 본인이 grep 으로 1차 확인
+2. **독립 서브에이전트 검증** — 작성자(현재 세션)가 **아닌** 별도 서브에이전트를 스폰하여 재검증:
+   - 프롬프트에 명시: "무엇을 바꿨는지" 변경 목록 + 검증 항목 (잔존 참조 grep / 링크 무결성 / 문서 간 모순 쌍 / frontmatter·YAML 유효성 / README↔실제 정합 / 폴더 상태 실측)
+   - **변경 단위가 크면 영역별로 여러 에이전트로 분할** (예: ① 경로/링크 검증 ② 정책 모순 검증 ③ README/카운트 정합 — 각각 독립 스폰)
+3. **발견 사항 수정 → 재검증** — 🔴 급 발견은 수정 후 해당 항목 재확인. 통과 전에는 완료 선언 금지
+4. **결과 보고** — 발견/수정 내역을 사용자에게 명시 (0건이어도 "독립 검증 통과" 명시)
+
+**왜 필수인가 (실증)**:
+- 작성자 단독 점검은 매몰됨 — 2026-04~07 반복 실증: 자기 점검 0~5건 vs 서브에이전트 추가 5건+
+- 2026-07-03 사례: 대량 변경 후 크로스체크가 작성자가 못 본 실결함을 2회 연속 적발 (SKILL frontmatter YAML 파싱 실패, L3 게이트 4문서 모순 — 자동 로딩/오토파일럿이 조용히 깨질 뻔함)
+- 범용 문서의 결함은 **모든 프로젝트·모든 세션으로 전파**되므로 코드 버그보다 파급이 크다
+
+> 일반 코드/단일 파일 작업에는 적용하지 않는다 (토큰/속도 절약 — 사용자 명시 정책).
+
+---
+
+## 8. 변경 이력 (정책 진화)
 
 ### 2026-04-29: rules vs templates 통일
 - **이전**: `templates/RULES-TEMPLATE.md` (rules 작성 가이드를 templates 에 둠 — 정체성 모호)
@@ -239,7 +278,15 @@ paths:
 
 ---
 
-## 8. 관련 문서
+### 2026-07-03: 신 로딩 모델 전환 (rules 네이티브 자동 로딩)
+- **배경**: Claude Code 가 `.claude/rules/**` 네이티브 자동 로딩 도입 (paths 없음 = 상시 / paths 있음 = 매칭 파일 작업 시 조건부) — "paths 는 자동 로딩이 아니다" 전제가 플랫폼 업데이트로 뒤집힘 (이번 세션에서 session-init.md 자동 주입으로 실증)
+- **변경**: `memory/` → `rules/memory/` 이동 (사용자 메모리 자동 로딩화), `/InitLoad` 를 수동 일괄 로딩에서 로딩 상태 점검 커맨드로 축소, 결정 트리 3️⃣ 을 "진입 경로 확보" 에서 "로딩 방식 결정" 으로 재정의
+- **신규 관리 대상**: 상시 로딩 예산 (paths 없는 rules 총량 — 수치는 session-init.md 가 진실 원천), paths 글롭 적정성 (과포괄 시 무관 스택 오로딩 — 예: `**/*.ts` 가 tech 3개 파일에 중복)
+- **자기 보호**: 플랫폼 기능 정기 재검증 원칙 — "우회 장치가 네이티브 기능으로 대체 가능해졌는가" 를 검토 시 점검 (ReviewClaudeConfig 반영 예정)
+
+---
+
+## 9. 관련 문서
 
 - [`agent-guide.md`](agent-guide.md) — 새 에이전트 작성 표준
 - [`agent-memory.md`](agent-memory.md) — agent-memory 정책

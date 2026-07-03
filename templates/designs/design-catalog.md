@@ -186,7 +186,7 @@ WPF/MAUI는 ControlTemplate으로 커스텀 가능하므로 적용도 60~70%까�
 
 | brand | theme | density | mood | audience | shape | color | typo | best_for | tables | key_feature | not_for |
 |-------|-------|---------|------|----------|-------|-------|------|----------|--------|-------------|---------|
-| claude | light | spacious | warm, editorial | consumer | rounded | single-accent (#c96442 Terracotta) | serif | AI 제품, 에디토리얼, 인문학적 브랜드 | no | 세리프 + 따뜻한 양피지(#f5f4ed) = 인간적 기술 브랜드 | 대시보드, 개발자 도구, 속도감 UI |
+| claude-design | light | spacious | warm, editorial | consumer | rounded | single-accent (#c96442 Terracotta) | serif | AI 제품, 에디토리얼, 인문학적 브랜드 | no | 세리프 + 따뜻한 양피지(#f5f4ed) = 인간적 기술 브랜드 | 대시보드, 개발자 도구, 속도감 UI |
 | cohere | light | comfortable | professional | enterprise | rounded | single-accent (#39594d Forest Green) | mixed | 기업 AI/ML 플랫폼, B2B SaaS | no | 22px 시그니처 border-radius + 세리프/산세리프 이중 시스템 | 소비자 앱, 개발자 터미널 |
 | elevenlabs | light | spacious | ethereal | consumer | pill | monochrome | sans | 음성/오디오 AI, 미디어 기술, 고급 브랜드 | no | weight 300 + 0.1 이하 불투명도 그림자 = 공기처럼 가벼운 UI | 데이터 밀도 앱, 굵은 타이포 |
 | minimax | light | comfortable | playful | consumer | pill | multi-color | sans | AI 멀티 프로덕트 플랫폼, 크리에이티브 도구 | no | 다중 폰트(4종) + 멀티컬러 카드 = 다양한 AI 제품 쇼케이스 | 미니멀 단일 브랜드, 개발자 문서 |
@@ -272,7 +272,7 @@ WPF/MAUI는 ControlTemplate으로 커스텀 가능하므로 적용도 60~70%까�
 
 ### 테마별
 - **다크**: linear.app, supabase, spotify, raycast, composio, opencode.ai, x.ai, voltagent, clickhouse, sentry, mongodb, framer, sanity, resend, together.ai, mistral.ai, runwayml, warp, nvidia, bmw, spacex, kraken
-- **라이트**: airbnb, notion, stripe, airtable, claude, cursor, expo, ollama, elevenlabs, mintlify, posthog, pinterest, figma, intercom, miro, clay, webflow, minimax, lovable, revolut, wise, zapier, superhuman, replicate, vercel
+- **라이트**: airbnb, notion, stripe, airtable, claude-design, cursor, expo, ollama, elevenlabs, mintlify, posthog, pinterest, figma, intercom, miro, clay, webflow, minimax, lovable, revolut, wise, zapier, superhuman, replicate, vercel
 - **양면**: apple, cal, hashicorp, ibm, coinbase, uber
 
 ### 데이터 테이블 있는 디자인

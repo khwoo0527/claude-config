@@ -14,13 +14,13 @@ maxTurns: 30
 
 핫픽스 완료 후 다음 마무리 작업을 순서대로 수행합니다:
 1. 현재 상태 파악 (hotfix/* 브랜치 확인, 변경 범위 점검)
-2. PR 생성 (hotfix → **develop**)
+2. PR 생성 (hotfix → **통합 브랜치** — CLAUDE.md 브랜치 전략, 기본 develop)
 3. 경량 코드 리뷰 (변경 파일만, 기술 스택 베스트 프랙티스 기준)
 4. 빌드 검증 (CLAUDE.md에 정의된 빌드 명령)
 5. deploy.md 업데이트 (아카이빙 포함)
 6. 최종 보고 (PR URL, 수동 필요 항목, 메인 브랜치 병합 안내)
 
-> **sprint-close와의 차이**: ROADMAP.md 업데이트 없음, PR 대상이 develop, 검증 범위가 변경 파일 관련으로만 한정, sprint 문서 작성 없음.
+> **sprint-close와의 차이**: ROADMAP.md 업데이트 없음, 검증 범위가 변경 파일 관련으로만 한정, sprint 문서 작성 없음. (PR 대상은 sprint-close 와 동일하게 통합 브랜치)
 > **메인 브랜치 병합은 사용자가 직접 수행합니다. 절대 자동으로 메인 브랜치에 PR을 생성하거나 병합하지 않습니다.**
 
 ## 작업 절차
@@ -39,7 +39,7 @@ maxTurns: 30
 
 ### 2단계: PR 생성
 
-- 현재 hotfix 브랜치에서 **develop** 브랜치로 PR을 생성합니다. (메인 브랜치가 아닌 develop)
+- 현재 hotfix 브랜치에서 **CLAUDE.md 브랜치 전략에 정의된 통합 브랜치**로 PR을 생성합니다. (기본값 develop. 단일 main 전략이면 main — 병합 자체는 사용자 게이트 유지)
 - PR 제목: `fix: {핫픽스 설명} (hotfix)`
 - PR 본문에 다음을 포함합니다:
   - 문제 원인 및 영향 범위
@@ -49,7 +49,7 @@ maxTurns: 30
 
 ```bash
 gh pr create \
-  --base develop \
+  --base develop \    # ← CLAUDE.md 브랜치 전략의 통합 브랜치로 교체 (develop 은 기본값 예시)
   --head hotfix/{이슈명} \
   --title "fix: {핫픽스 설명} (hotfix)" \
   --body "$(cat <<'EOF'
@@ -153,7 +153,7 @@ PR: {PR URL}
 ### 6단계: 최종 보고
 
 사용자에게 다음을 보고합니다:
-- PR URL (develop 브랜치로의 PR)
+- PR URL (통합 브랜치로의 PR)
 - 코드 리뷰 결과 요약 (❌ Critical / ⚠️ High 이슈 여부)
 - 빌드 검증 결과
 - 사용자가 직접 수행해야 하는 남은 수동 검증 항목

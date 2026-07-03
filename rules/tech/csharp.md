@@ -224,7 +224,7 @@ var result = (from n in nodes where n.Kind == TypeKind.Class select n).ToList();
 
 ### 고급 패턴
 
-#### Pattern Matching (C# 9+)
+#### Pattern Matching (C# 9+ — 현행 C# 14)
 ```csharp
 // ✅ switch expression — 타입별 분기 (exhaustive 체크)
 public static string GetLabel(TypeKind kind) => kind switch
@@ -271,7 +271,12 @@ public record AnalysisMetrics(int ClassCount, int InterfaceCount, int EdgeCount)
 // ✅ with 표현식으로 복사 + 수정
 var updated = metrics with { ClassCount = 15 };
 
-// ❌ 변경 가능한 상태가 많은 객체에 record 사용 — class가 적절
+// ❌ 가변 상태가 많은 객체를 record로 — 값 비교가 매 갱신마다 어긋나고 with 복사 낭비
+public record ConnectionManager
+{
+    public List<Socket> ActiveSockets { get; set; } = [];  // 가변 컬렉션 + 상태 변화 → class가 적절
+    public int RetryCount { get; set; }
+}
 ```
 
 #### 인터페이스 기반 레이어 분리
@@ -298,6 +303,52 @@ public static string DefaultName { get; } = "Unnamed";
 
 ---
 
+#### 모던 C# 문법 채택 기준 (C# 12~14, 2026-07 기준)
+
+| 문법 | 채택 판정 | 기준 |
+|------|:--:|------|
+| 컬렉션 표현식 `[..]` (C# 12) | ✅ 기본 채택 | 논쟁 없이 정착 — `new List<int> { 1, 2 }` 대신 `[1, 2]`, 스프레드 `[..a, ..b]`. 컴파일러 최적화 이점 |
+| `field` 키워드 (C# 14) | ✅ 채택 | 백킹 필드 없이 접근자 로직: `set => field = value ?? throw new ArgumentNullException();` — 단 타입 내 `field` 심볼 존재 시 `@field` 로 회피 |
+| null 조건부 대입 `a?.B = v` (C# 14) | ✅ 채택 | null 체크 후 대입의 축약 — 우변은 좌변이 null 아닐 때만 평가 |
+| **primary constructor** (C# 12) | ⚠️ **선별 사용** | 파라미터가 **mutable 캡처**라는 게 함정 — record/단순 DTO/의존성 1~2개 DI 서비스엔 OK, **불변성이 중요한 클래스는 `private readonly` 필드 방식 유지** |
+| `params` 컬렉션 (C# 13) | ✅ 채택 | `params ReadOnlySpan<T>` 등 — 힙 할당 회피, BCL 자체가 채택 |
+
+```csharp
+// ✅ 컬렉션 표현식 + field 키워드
+private List<string> _errors = [];
+public string Name
+{
+    get => field;
+    set => field = value?.Trim() ?? throw new ArgumentNullException(nameof(value));
+}
+
+// ⚠️ primary constructor — DI 주입 서비스 정도까지만
+public class ReportService(IRepository repo, ILogger logger)   // OK: 단순 DI
+{
+    public Task<Report> BuildAsync() => repo.LoadAsync();
+}
+
+// ❌ 불변성이 중요한 클래스에 primary constructor — 파라미터가 mutable 캡처
+public class PriceCalculator(decimal taxRate)
+{
+    public decimal Calculate(decimal amount)
+    {
+        taxRate = 0;              // 재대입이 컴파일됨! readonly가 아님 — 조용한 상태 오염
+        return amount * (1 + taxRate);
+    }
+}
+
+// ✅ 불변성 중요 시 — readonly 필드로 받기 (재대입 = 컴파일 에러)
+public class PriceCalculator
+{
+    private readonly decimal _taxRate;
+    public PriceCalculator(decimal taxRate) => _taxRate = taxRate;
+    public decimal Calculate(decimal amount) => amount * (1 + _taxRate);
+}
+```
+
+---
+
 ## 안티패턴 (하지 말 것)
 
 ### 일반적 안티패턴
@@ -315,16 +366,27 @@ public static string DefaultName { get; } = "Unnamed";
 
 ### AI가 흔히 생성하는 실수
 
-| 안티패턴 | 실패 결과 | 대안 |
-|---------|----------|------|
-| 모든 메서드에 `try-catch(Exception)` | 에러 전파 차단 → 상위 레이어가 문제를 인지 못함 → 빈 화면 | 경계(UI 이벤트 핸들러, API 엔드포인트)에서만 catch |
-| `?.`와 `!` 남용 | `!`는 "null이 아님을 확신" 선언 — 확신이 틀리면 NullReferenceException | 적절한 null 검증 + early return |
-| 매 메서드마다 파라미터 null 체크 | 내부 메서드에서 동일한 검증 코드 10번 반복 | public API 경계에서만 검증 |
-| `Task.Run(() => asyncMethod())` | async 메서드를 Thread Pool에서 다시 래핑 → 불필요한 스레드 전환 오버헤드 | 직접 `await asyncMethod()` |
-| `ToList()` 중간마다 호출 | 3단계 LINQ 각각 ToList → 3배 메모리 할당 | 최종 소비 지점에서만 `ToList()` |
-| 접근 제한자 생략 | C# 기본값이 적용되지만 의도 불명확 → 리뷰어가 "일부러인지 실수인지" 판단 불가 | 항상 명시 |
-| `GViewer` 등 UI 컨트롤을 백그라운드 스레드에서 생성 | `InvalidOperationException` — 크로스 스레드 UI 접근 | UI 컨트롤은 반드시 UI 스레드에서 생성 |
-| 이벤트 핸들러 해제 안 함 | 메모리 릭 — GC가 이벤트 소스를 통해 리스너를 살려둠 | `-=`로 해제, 또는 WeakEventManager |
+> "왜" 컬럼 = AI가 이 실수를 만드는 구조적 이유 — 이유를 알면 변형된 형태도 리뷰에서 잡을 수 있다.
+
+| 안티패턴 | 실패 결과 | 왜 AI가 이걸 만드나 | 대안 |
+|---------|----------|-------------------|------|
+| 모든 메서드에 `try-catch(Exception)` | 에러 전파 차단 → 상위 레이어가 문제를 인지 못함 → 빈 화면 | "안전해 보이는" 코드를 선호 — 예외 처리 = 좋은 것이라는 피상 학습 | 경계(UI 이벤트 핸들러, API 엔드포인트)에서만 catch |
+| `?.`와 `!` 남용 | `!` 확신이 틀리면 NullReferenceException — 컴파일러 경고는 이미 꺼짐 | nullable 경고를 "없애는" 최단 경로가 `!` | 적절한 null 검증 + early return |
+| `.Result` / `.Wait()` 블로킹 | **sync-over-async 데드락** (UI/ASP.NET 컨텍스트) — 부하 상황에서만 재현되는 최악의 버그 | 동기 시그니처에 맞추려고 비동기를 강제 동기화 | 호출 체인 전체를 async로 (async all the way) |
+| 라이브러리 코드에서 `ConfigureAwait(false)` 누락 | 라이브러리 소비자의 UI 컨텍스트에서 데드락/성능 저하 | 앱 코드 예제로 학습됨 — 라이브러리/앱 구분 인식 없음 | 라이브러리·공용 코드는 `ConfigureAwait(false)` (analyzer CA2007) |
+| `CancellationToken` 파라미터 누락 | 장기 작업 취소 불가 — 사용자가 닫아도 백그라운드 계속 실행 | 시그니처를 최소로 생성하는 경향 | I/O·장기 작업 메서드에 CancellationToken 관통 |
+| await 안 된 Task에 IDisposable 전달 | Task 완료 전에 리소스 dispose → ObjectDisposedException (간헐) | using 블록과 Task 수명의 상호작용을 못 봄 | analyzer **CA2025** 활성 + Task 완료까지 리소스 수명 보장 |
+| `Task.Run(() => asyncMethod())` | 불필요한 스레드 전환 오버헤드 | "비동기 = Task.Run"이라는 피상 패턴 | 직접 `await asyncMethod()` (CPU 바운드만 Task.Run) |
+| 매 메서드마다 파라미터 null 체크 | 동일 검증 코드 10번 반복 | 방어 코드 = 품질이라는 과잉 일반화 | public API 경계에서만 검증 |
+| `ToList()` 중간마다 호출 | 3단계 LINQ 각각 ToList → 3배 메모리 할당 | 중간 결과를 "확정"하려는 경향 | 최종 소비 지점에서만 `ToList()` |
+| 접근 제한자 생략 | 의도 불명확 — 리뷰어가 "일부러인지 실수인지" 판단 불가 | 짧은 코드 선호 | 항상 명시 |
+| UI 컨트롤을 백그라운드 스레드에서 생성 | `InvalidOperationException` — 크로스 스레드 UI 접근 | 스레드 친화도(affinity) 개념이 코드 표면에 안 보임 | UI 컨트롤은 반드시 UI 스레드에서 생성 |
+| 이벤트 핸들러 해제 안 함 | 메모리 릭 — GC가 이벤트 소스를 통해 리스너를 살려둠 | 등록 코드만 요구되면 해제는 요구 밖 | `-=`로 해제, 또는 WeakEventManager |
+| deprecated API 자신 있게 생성 (BinaryFormatter 등) | .NET 9+에서 즉시 예외 / 다음 메이저에서 파손 | 학습 데이터의 시점이 과거 | 공식 문서 현행 시그니처 확인 + NuGet Audit 경고 무시 금지 |
+
+### 실전에서 발견된 지뢰
+
+> 실제 프로젝트에서 발견·해결된 항목은 **"실전 함정 & 지뢰" 섹션**에 4요소(증상/원인/해결/오답) 표로 누적한다 — 이 분류의 본체는 그쪽. 새 지뢰 발견 시 그 표에 날짜와 함께 추가할 것.
 
 ---
 
@@ -548,7 +610,9 @@ result.Errors.AddRange(errorBag);  // 병렬 작업 완료 후 집계
 
 ## WinForms 고유 패턴
 
-> WinForms는 .NET 8에서도 공식 지원되는 데스크톱 UI 프레임워크이다.
+> WinForms는 .NET 10 LTS에서도 활발히 개발되는 공식 데스크톱 UI 프레임워크이다.
+> .NET 10: 다크모드 `Application.SetColorMode(SystemColorMode)` 정식화 — 단 **디자이너는 라이트 모드로만 렌더링**되므로 다크 전용 색은 런타임 확인 필수.
+> 레거시 유지보수: .NET Framework 4.8은 Windows 구성요소로 계속 지원 — 마이그레이션은 의무가 아니라 비즈니스 판단 (신규 개발 = .NET 10).
 > 아래는 WinForms 특유의 함정과 베스트 프랙티스이다.
 
 ### SplitContainer 초기화 — Shown 이벤트 필수
@@ -711,7 +775,7 @@ bitmap.Save(path, ImageFormat.Png);
 | 경로 문자열 연결 | `"C:\data\" + userInput` → `../../etc/passwd` Path Traversal | `Path.Combine()` + `Path.GetFileName()` |
 | SQL 문자열 연결 | `"SELECT * FROM users WHERE id = " + input` → SQL Injection | 파라미터화 쿼리, ORM |
 | `Process.Start(userInput)` | Command Injection → 임의 명령 실행 | 입력값 화이트리스트 검증 |
-| `BinaryFormatter` | MS 공식 deprecated — 원격 코드 실행(RCE) 취약점 | `System.Text.Json` |
+| `BinaryFormatter` | **.NET 9에서 제거 확정** — 호출 시 `PlatformNotSupportedException` (RCE 취약점이 사유). 레거시 마이그레이션 최대 지뢰 | `System.Text.Json` (WinForms 클립보드/드래그드롭은 전용 마이그레이션 가이드) |
 | 사용자 입력 미검증 | 예상치 못한 문자, 길이 초과 → 버퍼 오버플로우 | 입력 경계에서 검증 |
 
 ```csharp
@@ -764,8 +828,16 @@ if (errors.Count() > 0)  // ❌ 전체 순회 가능 (IEnumerable인 경우)
 // OwnerDraw 이벤트에서 매번 new SolidBrush() → GC 압박
 private static readonly SolidBrush BackgroundBrush = new(Color.FromArgb(45, 45, 48));
 
-// ✅ HttpClient는 재사용 (IHttpClientFactory 권장)
-// ❌ 매 요청마다 new HttpClient() → 소켓 고갈 (TIME_WAIT)
+// ❌ 매 요청마다 new HttpClient() → TIME_WAIT 소켓 누적 → 소켓 고갈
+public async Task<string> FetchAsync(string url)
+{
+    using var client = new HttpClient();          // 요청마다 생성/폐기 — 소켓은 즉시 안 닫힘
+    return await client.GetStringAsync(url);
+}
+
+// ✅ 재사용 — IHttpClientFactory (DI) 또는 static 단일 인스턴스
+private static readonly HttpClient SharedClient = new();
+public Task<string> FetchAsync(string url) => SharedClient.GetStringAsync(url);
 ```
 
 ---
@@ -875,7 +947,7 @@ foreach (var node in nodes) { ... }
 ### csproj 권장 설정
 ```xml
 <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>  <!-- 현행 LTS (~2028-11). .NET 8·9는 2026-11-10 동시 EOL -->
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 </PropertyGroup>
@@ -925,12 +997,14 @@ dotnet publish --configuration Release --runtime win-x64 --self-contained -p:Pub
 | 라이브러리 | 이유 | 대안 |
 |-----------|------|------|
 | `Newtonsoft.Json` (신규 프로젝트) | .NET 내장 STJ가 더 빠르고 보안적 | `System.Text.Json` |
-| `BinaryFormatter` | MS 공식 deprecated, RCE 취약점 | `System.Text.Json`, Protobuf |
+| `BinaryFormatter` | .NET 9에서 제거 — 호출 시 즉시 예외 | `System.Text.Json`, Protobuf |
 | `WebClient` | deprecated, 비동기 미지원 | `HttpClient` |
 
 ---
 
 ## 실전 함정 & 지뢰
+
+> **발견 맥락**: 날짜 미표기 행은 2026-04 실제 프로젝트(WinForms 코드 분석 도구)에서 발견·해결한 항목 (개선 이력 참조). 날짜 표기 행은 해당 시점 실측.
 
 | 증상 | 원인 | 해결 | 오답 (하지 말 것) |
 |------|------|------|-------------------|
@@ -940,12 +1014,22 @@ dotnet publish --configuration Release --runtime win-x64 --self-contained -p:Pub
 | `async void`에서 예외 → 앱 크래시 | async void는 예외가 SynchronizationContext로 직접 전달, catch 불가 | `async Task` 반환 메서드 분리 + 호출부에서 `_ = Method()` | `AppDomain.UnhandledException`만 추가 |
 | 네임스페이스 충돌 (`Color`, `Point` 등) | `System.Drawing.Color`와 라이브러리의 `Color` 타입 동시 사용 | `using 별칭` 또는 전체 경로 명시 | 하나의 using 삭제 |
 | `obj/bin` 내 자동 생성 `.cs` 파일이 분석에 포함 | `SearchOption.AllDirectories`가 빌드 출력 폴더도 포함 | 파일 수집 시 `bin`/`obj` 경로 세그먼트 필터링 | 빌드 출력 삭제 |
-| MSAGL `PlaneTransformation.Rotation90` 정적 속성 없음 | 패키지 버전에 따라 공개 API 차이 | 직접 변환 행렬 `new PlaneTransformation(0,-1,0,1,0,0)` | 다른 버전 강제 설치 |
-| MSAGL `panButton`이 internal | 공개 API로 팬 모드 전환 불가 (1.1.6 기준) | Reflection `GetField(NonPublic \| Instance)` | 다른 라이브러리로 교체 |
 | `DrawToBitmap()` 시 오버레이 캡처 안 됨 | WM_PRINT 기반이라 `BringToFront()` 된 자식이 빠짐 | `Graphics.CopyFromScreen()` — 실제 화면 픽셀 복사 | 오버레이 제거 |
 | `List<T>` Parallel.ForEach에서 데이터 손실 | `List<T>`는 스레드 안전하지 않음 — 동시 Add 시 내부 배열 race | `ConcurrentBag<T>` 사용 | `lock(list)` 남용 |
-| GViewer 백그라운드 스레드에서 생성 시 크래시 | UI 컨트롤은 UI 스레드(STA)에서만 생성 가능 | Graph 계산은 Task.Run, GViewer 생성은 await 후 UI 스레드에서 | `Control.Invoke()` 남용 |
-| `GenericNameSyntax`가 `SimpleNameSyntax` 서브타입 | switch expression에서 Simple이 먼저 매칭되면 Generic이 안 걸림 | **구체적 타입을 먼저** 매칭 (Generic → Simple 순서) | `as` 캐스팅 후 null 체크 |
+| 네이티브 SDK Init 후 콜백/이벤트가 영영 안 옴 (2026-06 실측) | 콘솔/서비스의 STA 스레드에 **메시지 펌프 없음** — COM/윈도우 메시지 기반 콜백은 펌프 필요 (동기 Init 자체는 펌프 없이도 정상 동작하는 경우 많음 — 콜백류만 영향) | 전용 STA 스레드 + `Application.Run()` (또는 펌프 루프)에서 SDK 수명 관리 | `Thread.Sleep` 폴링으로 대기 |
+| `Process.Start`로 띄운 exe가 자기 DLL/설정 파일을 못 찾음 (2026-06 실측) | `WorkingDirectory` 기본값이 **호출자 기준** — 대상 exe 폴더가 아님 → 상대 경로 로드 실패 | `ProcessStartInfo.WorkingDirectory = Path.GetDirectoryName(exePath)` 명시 | 대상 exe와 DLL을 호출자 폴더로 복사 |
+| 네이티브 DLL 호출이 "행(hang)"처럼 보임 — 응답 없음 (2026-06 실측) | 내부에서 별도 프로세스 기동 + **사용자 확인 대기**(메시지박스 등) — 행이 아니라 대화형 블로킹 | 별도 스레드에서 호출 + 타임아웃, 공급사 문서의 대화형/테스트 모드 동작 확인 | 프로세스 강제 종료 후 재시도 |
+
+### 특정 라이브러리 함정 (해당 라이브러리 사용 시에만 적용)
+
+> 특정 패키지 버전에 종속된 항목 — 범용 C# 규칙이 아니므로 분리. 다른 라이브러리에서 유사 패턴(버전별 API 차이, internal 멤버, 타입 계층 매칭 순서)을 만났을 때의 **해결 접근법 견본**으로 참고.
+
+| 증상 | 원인 | 해결 | 오답 (하지 말 것) |
+|------|------|------|-------------------|
+| MSAGL `PlaneTransformation.Rotation90` 정적 속성 없음 | 패키지 버전에 따라 공개 API 차이 | 직접 변환 행렬 `new PlaneTransformation(0,-1,0,1,0,0)` | 다른 버전 강제 설치 |
+| MSAGL `panButton`이 internal | 공개 API로 팬 모드 전환 불가 (1.1.6 기준) | Reflection `GetField(NonPublic \| Instance)` | 다른 라이브러리로 교체 |
+| MSAGL GViewer 백그라운드 스레드에서 생성 시 크래시 | UI 컨트롤은 UI 스레드(STA)에서만 생성 가능 | Graph 계산은 Task.Run, GViewer 생성은 await 후 UI 스레드에서 | `Control.Invoke()` 남용 |
+| Roslyn `GenericNameSyntax`가 `SimpleNameSyntax` 서브타입 | switch expression에서 Simple이 먼저 매칭되면 Generic이 안 걸림 | **구체적 타입을 먼저** 매칭 (Generic → Simple 순서) | `as` 캐스팅 후 null 체크 |
 
 ---
 
@@ -983,6 +1067,16 @@ dotnet publish --configuration Release --runtime win-x64 --self-contained -p:Pub
 - [ ] 다크 테마 색상 일관성 확인
 ```
 
+### 비동기 코드 추가 시
+```
+- [ ] async void 없음 (이벤트 핸들러 제외 — CS4014/VSTHRD 경고 확인)
+- [ ] .Result / .Wait() 없음 (sync-over-async 데드락 — async all the way)
+- [ ] 장기/I/O 작업에 CancellationToken 관통
+- [ ] 라이브러리/공용 코드면 ConfigureAwait(false) (CA2007)
+- [ ] await 안 된 Task에 IDisposable 전달 없음 (CA2025)
+- [ ] UI 갱신은 await 이후 UI 스레드 컨텍스트에서만
+```
+
 ### 배포 전
 ```
 - [ ] Release 빌드 성공
@@ -991,18 +1085,45 @@ dotnet publish --configuration Release --runtime win-x64 --self-contained -p:Pub
 - [ ] 디버그 코드(Console.WriteLine, Debug.Assert) 제거
 - [ ] 에러 시나리오 테스트 (잘못된 입력, 빈 폴더, 문법 오류 파일)
 - [ ] 실행 파일에서 직접 동작 확인 (dotnet run)
+- [ ] NuGet Audit 경고 0 (NU1901~1904)
 ```
 
-### 에러 발생 시 디버깅 흐름
+### 에러 발생 시 디버깅 의사결정 트리
 ```
-1. 예외 메시지 + 스택 트레이스 확인
-2. 예외 발생 지점의 입력 데이터 확인
-3. null 가능성 점검 (Nullable 경고 확인)
-4. 리소스 해제 누락 확인 (using 누락)
-5. 스레드 안전성 확인 (UI 스레드 접근, ConcurrentBag)
-6. WinForms 이벤트 타이밍 확인 (ItemCheck, SplitContainer)
-7. 재현 가능한 최소 테스트 케이스 작성
+예외 발생 → 예외 타입이 무엇인가?
+
+├─ NullReferenceException
+│   → Nullable 경고(CS8600~8604) 무시한 곳 grep → `!` 단언 지점 우선 의심 → 검증 추가
+├─ InvalidOperationException + "cross-thread"
+│   → UI 컨트롤을 비UI 스레드에서 접근 — 생성/갱신 지점을 UI 스레드로 (Invoke 남용 말고 구조 수정)
+├─ InvalidOperationException + 컬렉션 변경
+│   → 열거 중 컬렉션 수정 or List<T> 동시 접근 — 스냅샷 복사 or Concurrent 컬렉션
+├─ ObjectDisposedException (간헐)
+│   → using 수명 vs Task 수명 충돌 (CA2025 패턴) — 리소스 수명을 Task 완료까지 연장
+├─ 데드락/응답 없음 (예외 없음)
+│   ├─ .Result/.Wait() 있는가? → sync-over-async — async 전파로 구조 수정
+│   ├─ 네이티브 호출 중인가? → 대화형 블로킹/펌프 부재 의심 (실전 함정 참조)
+│   └─ lock 중첩인가? → lock 순서 통일
+├─ FileNotFound/DllNotFound (실행 파일은 있는데)
+│   → WorkingDirectory 확인 (실전 함정 — Process.Start 기본값 함정)
+└─ WinForms 이벤트가 이상한 시점/값
+    → ItemCheck(변경 전 값)/SplitContainer(크기 미확정) 등 타이밍 함정 표 대조
+
+공통 마무리: 재현 가능한 최소 테스트 케이스 작성 → 수정 → 같은 시나리오 재발 확인
 ```
+
+### 규칙 위반 ↔ 컴파일러/Analyzer 매핑 (기계 검증 가능한 규칙)
+
+> "규칙을 지켰는지"를 사람이 아니라 빌드가 판정하게 한다 — 아래 경고가 0이면 해당 규칙은 통과.
+
+| 본 문서의 규칙 | 위반 시 잡아주는 경고 | 활성 방법 |
+|---------------|---------------------|----------|
+| null 안전 (`!` 남용 금지) | CS8600~CS8604, CS8618 | `<Nullable>enable</Nullable>` |
+| await 안 된 Task에 IDisposable 금지 | **CA2025** | .NET analyzers 기본 |
+| 라이브러리 ConfigureAwait | CA2007 | `.editorconfig`에서 라이브러리 프로젝트만 활성 |
+| async 메서드가 Task 반환 | CS4014 (await 누락 경고), VSTHRD 계열 | 기본 + Microsoft.VisualStudio.Threading.Analyzers (선택) |
+| IDisposable using 처리 | CA2000 | .NET analyzers |
+| 취약 패키지 금지 | NU1901~NU1904 | NuGet Audit — .NET 10부터 전이 의존성 포함 기본 |
 
 ---
 
@@ -1043,6 +1164,13 @@ dotnet publish --configuration Release --runtime win-x64 --self-contained -p:Pub
 - 2026-04-06: Level 1(55점) → Level 3(85점+) 전면 재작성
 - 2026-04-06: WinForms 고유 패턴 섹션 추가 — SplitContainer/ItemCheck/드래그/키보드/OwnerDraw/화면캡처
 - 2026-04-06: 병렬/동시성 섹션 추가 — Parallel.ForEach, ConcurrentBag, CancellationToken, IProgress
+- 2026-07-03: /ScoreRules 독립 채점 78→**86점 Level 3 최상위** (L4 게이트 6/6 통과, 총점 4점 미달 — 잔여 갭은
+  실증 기록형: 함정 행별 발생 맥락, AI 코드 시니어 리뷰 통과 기록. 실전 사용 누적하며 도달할 것).
+- 2026-07-03: .NET 10 LTS/C# 14 현대화 (TFM 갱신, 다크모드, BinaryFormatter 제거 확정 반영) + 모던 문법 채택 기준 표
+  (컬렉션 표현식/field/primary constructor 선별 기준) + AI 실수 표 4열화("왜 AI가 이걸 만드나" 분석 + async 계열 4행)
+  + 실전 함정 3행 추가 (STA 펌프/WorkingDirectory/네이티브 대화형 블로킹 — 2026-06 실측 범용화)
+  + 라이브러리 종속 함정 분리 (MSAGL/Roslyn — 범용성 회복) + 디버깅 의사결정 트리 + 규칙↔Analyzer 매핑 표.
+  근거: 2026-07 웹 리서치 (출처 확보).
 - 2026-04-06: 실전 함정 12개 추가 — 실제 프로젝트에서 발견된 WinForms/MSAGL/Roslyn 이슈
 - 2026-04-06: 코드 예시 40개+ — 실제 프로젝트 패턴 기반 범용화
 - 2026-04-06: 안티패턴 테이블 — 실패 결과를 구체적 시나리오로 명시

@@ -6,7 +6,7 @@
 > **담지 않는 것**:
 > - 다른 프로젝트에 통하는 PRD/요구사항 노하우 → `rules/workflow/prd-guide.md`
 > - 공식 진행 상태 (ROADMAP 구조/Phase 분할) → `ROADMAP.md` 가 진실
-> - 사용자 작업 스타일 → `memory/feedback_*.md`
+> - 사용자 작업 스타일 → `rules/memory/feedback_*.md`
 
 ---
 

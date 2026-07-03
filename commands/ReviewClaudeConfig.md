@@ -50,7 +50,7 @@
    ```
    너는 .claude/ 폴더의 객관적 검토자다. 작성 컨텍스트는 모르고,
    commands/ReviewClaudeConfig.md 의 실행 절차 (1~5단계) 를 그대로 따라
-   4축 점검 + 7 체크리스트 + 객관 보고만 한다. 코드 수정 X.
+   4축 점검 + 검토 체크리스트 + 객관 보고만 한다. 코드 수정 X.
    작업 디렉토리: <project>/.claude/
    ```
 2. **동시에 자기 검토 진행** — 1~5단계의 본질 차원 (sub-agent 가 grep 으로 못 잡는 영역):
@@ -73,7 +73,7 @@
 |------|------|
 | [`rules/workflow/folder-structure.md`](../rules/workflow/folder-structure.md) | 폴더 정체성 + 새 문서 결정 트리 + 안티패턴 |
 | [`rules/workflow/agent-guide.md`](../rules/workflow/agent-guide.md) | 에이전트 작성 표준 + 패턴 분류 |
-| [`rules/workflow/rules-guide.md`](../rules/workflow/rules-guide.md) | rules/tech 작성 메타 가이드 + 4단계 품질 체크리스트 |
+| [`rules/workflow/rules-guide.md`](../rules/workflow/rules-guide.md) | rules/tech 작성 메타 가이드 + 품질 평가 체계 |
 | [`rules/workflow/agent-memory.md`](../rules/workflow/agent-memory.md) | agent-memory 정책 |
 | [`rules/workflow/tech-knowledge.md`](../rules/workflow/tech-knowledge.md) | rules/tech 누적 정책 |
 | [`rules/workflow/session-init.md`](../rules/workflow/session-init.md) | 작업 유형별 매트릭스 (진입 경로 검증 기준) |
@@ -88,7 +88,7 @@
 - 가이드의 표/매트릭스 vs 실제 파일/폴더 (예: `agent-guide.md` 의 에이전트 표 vs `agents/*.md` 글롭)
 - frontmatter `description` / `name` / `model` 의 정확성
 - 폐지된 키 잔존 (예: `memory: project`)
-- **변경 이력 본문 내 카운트 정합** — `folder-structure.md § 7` 등 변경 이력 항목에 "N개 발견" 식 카운트 박혔을 때 실제 나열 항목 수와 일치 여부 (자기 매몰 사례: 2026-05-06 iteration 2 변경 이력에 "9개 중 4개" 박았으나 실제 3개 나열)
+- **변경 이력 본문 내 카운트 정합** — `folder-structure.md § 8` 등 변경 이력 항목에 "N개 발견" 식 카운트 박혔을 때 실제 나열 항목 수와 일치 여부 (자기 매몰 사례: 2026-05-06 iteration 2 변경 이력에 "9개 중 4개" 박았으나 실제 3개 나열)
 
 **스캔 방법**:
 ```bash
@@ -173,7 +173,7 @@ grep -rn "^| \[" .claude/rules/workflow/
 **판정 기준**:
 - 카운트 숫자 → 제거 (값 잃지 않음 — 가독성에 거의 영향 없음)
 - 개별 카탈로그 표 → 패턴 분류 표로 재구성 (`agent-guide.md` § 7 사례 참고)
-- 선언적 인덱스 → 글롭/자동화 가능한지 검토 (예: `memory/MEMORY.md` 는 `memory/*.md` 글롭으로 동적)
+- 선언적 인덱스 → 글롭/자동화 가능한지 검토 (예: `rules/memory/` 는 폴더 자체가 자동 로딩 — 인덱스 불필요)
 
 **이번 세션 발견 사례**:
 - `README.md` "agents/ (9개)", "commands/ (5개)" 카운트 → 제거 (페이퍼워크 누적 사라짐)
@@ -185,21 +185,19 @@ grep -rn "^| \[" .claude/rules/workflow/
 
 ---
 
-#### 4축: 진입 경로 누락 (frontmatter `paths` 함정)
+#### 4축: 로딩 체계 위생 (신 로딩 모델 — 2026-07 재정의)
 
-> **이번 세션 가장 큰 발견 — 다음번에도 가장 먼저 점검할 것.**
-
-**핵심 함정**:
-- `frontmatter paths` 는 **자동 로딩 메커니즘이 아니다** — 단순 메타데이터.
-- Claude Code 가 자동 로딩하는 건 `/CLAUDE.md` + `~/.claude/projects/{인코딩}/memory/MEMORY.md` 만.
-- 그 외 모든 문서는 누군가 **명시적으로 Read** 해야 함.
-- `paths` 만 박고 진입 경로 없는 가이드 = **페이퍼워크 문서** (작성해도 사용 안 됨).
+> **전제 (2026-07 갱신)**: Claude Code 는 `.claude/rules/**` 를 네이티브 자동 로딩한다 — `paths` 없음 = 매 세션 상시, `paths` 있음 = 매칭 파일 작업 시 조건부. (구 전제 "paths 는 단순 메타데이터, 수동 Read 필수" 는 플랫폼 업데이트로 폐기 — 상세: `session-init.md` "자동 로딩" 섹션)
 
 **점검 대상**:
-- `rules/workflow/*.md` 각각이 어디서 명시적 Read 되는지
-  - `session-init.md` 매트릭스에 작업 유형 매칭됨? → OK
-  - 다른 가이드/에이전트 본문에 명시적 참조 있음? → OK
-  - 어디서도 Read 안 됨? → ❌ **페이퍼워크 — 진입 경로 추가 필요**
+1. **paths 글롭 적정성** — 과포괄 글롭이 무관 스택 프로젝트에서 대형 룰을 오로딩하지 않는가 (예: 프레임워크 룰에 `**/*.ts` → 순수 TS 프로젝트에서 100KB 룰 로딩)
+2. **상시 로딩 예산** — paths 없는 rules 총량이 session-init.md 선언 예산(수치는 그 문서가 진실 원천) 이내인가. 대형/저빈도 문서가 paths 없이 rules/ 에 있지 않은가
+3. **rules 밖 문서 진입 경로** — templates/·agents/ 가 참조하는 문서, 커맨드가 Read 하는 문서가 실제로 어디서든 참조되는가
+   - `session-init.md` 매트릭스에 작업 유형 매칭됨? → OK
+   - 다른 가이드/에이전트 본문에 명시적 참조 있음? → OK
+   - 어디서도 Read 안 됨? → ❌ **페이퍼워크 — 진입 경로 추가 필요**
+4. **플랫폼 기능 재검증** — 프레임워크의 우회 장치가 Claude Code 네이티브 기능으로 대체 가능해지지 않았는가 (이번 4축 재정의가 그 사례 — 분기 1회 점검)
+5. **외부 의존 실존 검증** — 문서가 참조하는 스킬/에이전트/플러그인이 환경에 실재하는가 (`.claude/skills/` 글롭 vs 문서 내 Skill 참조 대조)
 
 **스캔 방법**:
 ```bash
@@ -215,14 +213,14 @@ done
 ```
 
 **판정 기준**:
-- 0 참조 → 페이퍼워크. `session-init.md` 매트릭스에 작업 유형 + 로딩 대상 추가
-- 1 이상 참조 → OK
-- 매트릭스에는 있는데 본문 참조 0 → OK (매트릭스 매칭이 진입 경로)
+- paths 글롭 과포괄 → 글롭 축소 (해당 기술의 시그니처 파일로 한정)
+- 상시 로딩 예산 초과 → 대형 문서에 paths 부여 또는 분할
+- rules 밖 문서 0 참조 → 페이퍼워크. `session-init.md` 매트릭스 등록 또는 참조 추가
+- 문서가 참조하는 스킬/에이전트 미실재 → 자체 제작 / 참조 인라인화 / 제거 중 결정
 
-**이번 세션 발견 사례**:
-- `rules-guide.md`, `tech-knowledge.md`, `agent-guide.md`, `folder-structure.md` 4개 모두 `paths` 만 박혀있고 진입 경로 없음 발견
-- 해결: `session-init.md` 매트릭스에 3행 추가 + 누락 문제 표에 3행 추가
-- 자기 보호: `folder-structure.md` § 2 결정 트리 3️⃣ 단계 + § 5 rules/workflow 체크리스트에 진입 경로 확보 룰 박음 → 다음 신설 가이드는 자동으로 진입 경로 챙김
+**발견 사례 (자기 보호 이력)**:
+- 2026-04-30: 신설 가이드 4개가 진입 경로 없이 떠 있음 발견 → session-init 매트릭스 등록 (구 모델 시절)
+- 2026-07-03: 신 로딩 모델 전환 — "paths 는 자동 로딩 아님" 전제가 플랫폼 업데이트로 뒤집힘을 실증 (세션에서 rules 자동 주입 확인). 4축을 "진입 경로 누락" 에서 "로딩 체계 위생" 으로 재정의. 미설치 스킬 참조 7종 발견 → 자체 스킬 2개 제작 + 전략 인라인화
 
 ---
 
@@ -370,15 +368,17 @@ grep -rln "rules/workflow/{변경파일}" .claude/
 - [ ] 새 항목 추가 시 갱신 위치 ≤ 2곳 (본질 부담만)
 - [ ] 선언적 인덱스 → 글롭/자동화 가능한지 검토됨
 
-### D. 진입 경로 (frontmatter `paths` 함정)
-- [ ] 모든 `rules/workflow/*.md` 가 `session-init.md` 매트릭스 매칭 또는 다른 가이드/에이전트 본문에서 명시 참조됨
-- [ ] `paths` 만 박혀있고 진입 경로 없는 가이드 0개
-- [ ] 새 가이드 신설 시 `folder-structure.md` 결정 트리 3️⃣ 단계 적용됨
-- [ ] 진입 경로 누락 시 발생 문제가 `session-init.md` "로딩 누락 시 발생 문제" 표에 기록됨
+### D. 로딩 체계 위생 (신 로딩 모델)
+- [ ] rules 파일들의 `paths` 글롭이 적정함 (과포괄로 무관 스택에서 대형 룰 오로딩 X)
+- [ ] paths 없는 rules 총량이 session-init.md 예산 이내 (상시 로딩 예산 — 수치는 그 문서가 진실 원천)
+- [ ] `rules/memory/` 파일에 paths 부여된 것 0개 (부여 시 세션 시작 누락)
+- [ ] rules 밖 문서(templates 등)가 매트릭스 매칭 또는 명시 참조로 진입 경로 보유
+- [ ] 문서가 참조하는 스킬/에이전트가 전부 실재 (`.claude/skills/` 대조)
+- [ ] 새 가이드 신설 시 `folder-structure.md` 결정 트리 3️⃣ (로딩 방식 결정) 적용됨
 
 ### E. 자기 보호 메커니즘
 - [ ] 이번 검토에서 발견된 안티패턴이 적절한 가이드의 안티패턴 섹션 / 체크리스트에 박혔음
-- [ ] `folder-structure.md` § 7 변경 이력에 이번 검토 + 결정 사항 기록됨
+- [ ] `folder-structure.md` § 8 변경 이력에 이번 검토 + 결정 사항 기록됨
 
 ### F. 후속 단계 위임 준비 (사용자 게이트)
 - [ ] 변경 사항 객관 보고 완료
@@ -402,14 +402,16 @@ grep -rln "rules/workflow/{변경파일}" .claude/
 
 ### 점검 대상 안티패턴
 
-- ❌ frontmatter `paths` 만 박힌 가이드 (자동 로딩 아님 함정)
+- ❌ paths 없는 대형/저빈도 문서를 rules/ 에 둠 (상시 로딩 예산 잠식)
+- ❌ paths 글롭 과포괄 (무관 스택에서 대형 룰 오로딩)
+- ❌ 미설치 스킬/에이전트를 문서가 참조 (실행 시 에러)
 - ❌ 카운트 숫자 박기 ("(N개)" — 페이퍼워크 누적)
 - ❌ 카탈로그식 표 (개별 행 추가 부담)
 - ❌ 같은 정책 여러 위치 분산
 - ❌ 가이드를 `templates/` 에 (정체성 위반 — `rules/workflow/` 가 맞음)
 - ❌ 빈 골격을 `rules/workflow/` 에 (정체성 위반 — `templates/` 가 맞음)
 - ❌ `agent-memory/` 에 다른 프로젝트에 통할 일반 노하우 (rules/tech/ 로 이전)
-- ❌ `memory/` 에 이 프로젝트 종속 정보 (`/CLAUDE.md` 또는 `agent-memory/` 로)
+- ❌ `rules/memory/` 에 이 프로젝트 종속 정보 (`/CLAUDE.md` 또는 `agent-memory/` 로)
 - ❌ 다중 파일 모델 (예: `agent-memory/{name}/2026-04-25-task.md`) — 단일 `MEMORY.md` 가 표준
 - ❌ 폐지된 frontmatter 키 (`memory: project`) 잔존
 - ❌ `agents/` 본문에 진입 절차 명시 (CLAUDE.md 자동 로딩과 중복)
@@ -442,7 +444,7 @@ grep -rln "rules/workflow/{변경파일}" .claude/
 
 매 검토 후:
 - 발견된 새 안티패턴 → `folder-structure.md` § 6 안티패턴 또는 § 5 체크리스트에 추가
-- 발견된 새 함정 → `folder-structure.md` § 7 변경 이력 추가
+- 발견된 새 함정 → `folder-structure.md` § 8 변경 이력 추가
 - 발견된 새 베스트 프랙티스 → 적절한 가이드의 룰 섹션에 추가
 
 이렇게 하면 다음번 검토는 본 커맨드의 안티패턴 섹션 + folder-structure 의 체크리스트가 더 풍부해져 더 수월해진다.

@@ -37,7 +37,7 @@ diff -rq "claude-config/" "<project>/.claude/" | grep -v "settings.local.json" |
 
 ### 3단계: 항목별 진실 원천 판단
 
-각 차이 항목에 대해 [`verify_before_action`](../memory/feedback_verify_before_action.md) 룰에 따라 추측 금지, 검증 후 진행:
+각 차이 항목에 대해 [`verify_before_action`](../rules/memory/feedback_verify_before_action.md) 룰에 따라 추측 금지, 검증 후 진행:
 
 #### 시점 비교 (양쪽 다른 내용)
 - `git log -1 --format="%ai" -- <file>` 으로 양쪽 마지막 commit 시점 확인
@@ -51,7 +51,7 @@ diff -rq "claude-config/" "<project>/.claude/" | grep -v "settings.local.json" |
 |---|---|
 | 다른 프로젝트에도 통하는 기술 노하우 | `rules/tech/{tech}.md` 로 역반영 (claude-config) |
 | 다른 프로젝트에도 통하는 워크플로우 룰 | `rules/workflow/*.md` 로 역반영 |
-| 다른 프로젝트에도 통하는 사용자 작업 스타일 | `memory/feedback_*.md` 로 역반영 |
+| 다른 프로젝트에도 통하는 사용자 작업 스타일 | `rules/memory/feedback_*.md` 로 역반영 |
 | 이 프로젝트만의 진행 상태 | 프로젝트 진실 원천 (ROADMAP/sprint/deploy/CLAUDE.md) 으로 이관 후 삭제 |
 | 이 프로젝트만의 코드베이스 컨텍스트 | `agent-memory/{name}/MEMORY.md` 또는 `CLAUDE.md` 에 이관 |
 | 옛 정책의 잔재 (정책 변경으로 무의미해진 파일) | 진실 원천 검증 후 단순 삭제 |
@@ -88,9 +88,9 @@ diff -rq "claude-config/" "<project>/.claude/" | grep -v "settings.local.json" |
 진행하시겠습니까? (Y/N + 항목별 조정 가능)
 ```
 
-[`recommend_with_reason`](../memory/feedback_recommend_with_reason.md) 룰 적용 — 각 항목에 추천 + 이유 명시.
+[`recommend_with_reason`](../rules/memory/feedback_recommend_with_reason.md) 룰 적용 — 각 항목에 추천 + 이유 명시.
 
-[`blanket_authorization`](../memory/feedback_blanket_authorization.md) 룰 적용 — 위임 신호 받은 경우 항목별 컨펌 생략, 합리적 기본값으로 자동 진행 + 사후 보고.
+[`blanket_authorization`](../rules/memory/feedback_blanket_authorization.md) 룰 적용 — 위임 신호 받은 경우 항목별 컨펌 생략, 합리적 기본값으로 자동 진행 + 사후 보고.
 
 ### 5단계: 실행
 
@@ -106,9 +106,14 @@ diff -rq "claude-config/" "<project>/.claude/" | grep -v "settings.local.json" |
 
 두 repo 각각:
 1. `git status` 확인
-2. `git add -A`
-3. `git commit -m "{변경 요약}"` — 의도와 이유 명시
-4. `git push origin <branch>`
+2. **시크릿 grep (push 전 필수)** — `settings.local.json` 포함 스테이징 대상 전체에서 시크릿 패턴 0건 확인:
+   ```bash
+   grep -inE "PGPASSWORD|-P ['\"]|password|secret|token=" <스테이징 파일들>
+   ```
+   1건이라도 발견 시 push 중단 + 사용자 보고 (claude-config 는 public repo — 시크릿 유출 즉시 사고).
+3. `git add -A`
+4. `git commit -m "{변경 요약}"` — 의도와 이유 명시
+5. `git push origin <branch>`
 
 > claude-config 가 변경되면 claude-config 도 push 필요. 프로젝트가 변경되면 프로젝트 도 push 필요. **양쪽 모두 누락 없도록 확인**.
 

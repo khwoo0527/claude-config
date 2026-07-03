@@ -6,7 +6,7 @@
 > **담지 않는 것**:
 > - 다른 프로젝트에 통하는 일반 노하우 → `rules/tech/{tech}.md`
 > - 공식 진행 상태 (Phase 번호/Sprint 분할) → `ROADMAP.md` / `phase{N}.md` 가 진실
-> - 사용자 작업 스타일 → `memory/feedback_*.md`
+> - 사용자 작업 스타일 → `rules/memory/feedback_*.md`
 
 ---
 
